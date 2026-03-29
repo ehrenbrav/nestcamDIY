@@ -1,6 +1,9 @@
 The NestCamDIY is a Raspberry Pi based video camera that can be installed in a birdhouse, squirrel-house or any other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar. It works with both ambient light and in complete darkness and streams a video feed to an address on your network, meaning you can view it using any browser. This allows live viewing from you phone, a computer, or even a dedicated video monitor.
 
-These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and (if you build your own birdbox) woodworking. 
+These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and (if you build your own birdbox) woodworking.
+
+Important Caveats
+This is intended for use on a private network and should not be exposed to the internet without additional security hardening.
 
 Raspberry Pi Configuration
 1.1 Download the Raspberry Pi Imager from here: https://www.raspberrypi.com/software/.

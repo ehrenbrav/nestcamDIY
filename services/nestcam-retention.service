@@ -1,0 +1,16 @@
+[Unit]
+Description=NestCam retention (prune old recordings)
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+WorkingDirectory=/opt/nestcam
+EnvironmentFile=-/etc/nestcam/nestcam.env
+StateDirectory=nestcam
+ExecStart=/usr/bin/python3 /opt/nestcam/retention.py --root /var/lib/nestcam/recordings --max-gb 80.0 --min-free-gb 15.0
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=full
+StandardOutput=journal
+StandardError=journal
