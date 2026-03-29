@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import pwd
 import shutil
 import subprocess
 import sys
@@ -207,11 +208,51 @@ def install_system_files(repo_root: Path) -> None:
     )
 
 
+def resolve_invoking_user_home() -> Path | None:
+    sudo_user = os.environ.get("SUDO_USER")
+    if sudo_user and sudo_user != "root":
+        try:
+            candidate = Path(pwd.getpwnam(sudo_user).pw_dir)
+            if candidate.exists():
+                return candidate
+        except KeyError:
+            pass
+
+    home = Path.home()
+    if home.exists():
+        return home
+    return None
+
+
+def create_recordings_symlink() -> None:
+    home_dir = resolve_invoking_user_home()
+    if home_dir is None:
+        print("Warning: could not determine a home directory for the recordings symlink.")
+        return
+
+    symlink_path = home_dir / "recordings"
+
+    if symlink_path.is_symlink():
+        current_target = symlink_path.resolve(strict=False)
+        if current_target == RECORDINGS_DIR:
+            print(f"Recordings symlink already exists: {symlink_path} -> {RECORDINGS_DIR}")
+            return
+        die(f"existing symlink points elsewhere: {symlink_path} -> {current_target}")
+
+    if symlink_path.exists():
+        die(f"cannot create recordings symlink because this path already exists: {symlink_path}")
+
+    symlink_path.symlink_to(RECORDINGS_DIR, target_is_directory=True)
+    print(f"Created recordings symlink: {symlink_path} -> {RECORDINGS_DIR}")
+
+
+
 def create_directories() -> None:
     ensure_dir(INSTALL_ROOT, 0o755)
     ensure_dir(CONFIG_DIR, 0o755)
     ensure_dir(STATE_DIR, 0o755)
     ensure_dir(RECORDINGS_DIR, 0o755)
+
 
 
 def systemd_reload() -> None:
@@ -296,6 +337,7 @@ def main() -> int:
 
     install_system_files(repo_root)
     write_default_env(repo_root / DEFAULT_ENV_SOURCE, ENV_FILE, overwrite=args.replace_env)
+    create_recordings_symlink()
 
     systemd_reload()
     systemd_enable(start_now=not args.no_start)
@@ -304,7 +346,10 @@ def main() -> int:
     print("NestCam installation complete.")
     print(f"Code installed to: {INSTALL_ROOT}")
     print(f"Config file:        {ENV_FILE}")
+    recordings_link = resolve_invoking_user_home()
+    recordings_link_str = str(recordings_link / "recordings") if recordings_link else "(not created)"
     print(f"Recordings dir:     {RECORDINGS_DIR}")
+    print(f"Home symlink:       {recordings_link_str}")
     print()
     print("Recommended checks:")
     print("  systemctl status nestcam.service")
