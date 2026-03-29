@@ -8,14 +8,15 @@ Type=simple
 DynamicUser=yes
 SupplementaryGroups=video
 WorkingDirectory=/opt/nestcam
+ExecStartPre=/bin/sleep 5
 ExecStart=/usr/bin/python3 /opt/nestcam/nestcam_daemon.py
-Restart=on-failure
+Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/etc/nestcam/nestcam.env
 StateDirectory=nestcam
 RuntimeDirectory=nestcam
-TimeoutStopSec=20
+TimeoutStopSec=5
 KillMode=mixed
 SendSIGKILL=yes
 NoNewPrivileges=yes

@@ -42,6 +42,7 @@ Raspberry Pi Configuration
 - Next, use git to clone the NestCamDIY repository: `git clone https://github.com/ehrenbrav/NestCamDIY`. This will put a copy of all the NestCamDIY software on your Pi.
 - Go into the project directory: `cd NestCamDIY`. Remember you can hit Tab for autocomplete to make typig faster.
 - Install the software, so all the pieces are put in the correct places on your Pi: `sudo python setup.py`. Once that completes successfully, shutdown the Pi for now until we need it again: `sudo shutdown -h now`. If you are using a UPS hat, switch the on-off switch to off once the LED on the Pi shows that it is off. If you are using a wired setup, simply pull out the power supply once the LED turns off.
+- Shut down the system - we'll next turn to building the hardware: `sudo shutdown -h now`.
 -- Educational Background: How the NestCamDIY software works. [ ]
 
 Build the Hardware
@@ -93,7 +94,7 @@ Now it is time to run some initial tests to ensure the connections are good and 
 
 3.2. Boot the Pi by turning the off-on switch to on (if using the UPS hat) or plugging a USB power charger into the PWR jack (if buiding a wired setup). Wait for the green LED to come on and stop flashing (this might take a minute or two as the Pi boots).
 
-3.3. Connect to the Pi using ssh as before: `ssh <NAME-OF-YOUR-PI>`.
+3.3. Connect to the Pi using ssh as before: `ssh <NAME-OF-YOUR-PI>`. Remember to be patient as it might take a bit of time for the Pi to boot. If you wait a good five minutes and still can't access it, use ChatGPT to debug the issue, as it could be a number of common causes.
 - Change to the test directory: `cd test`.
 - Run the basic LED test: `./test_led.py`. You should see the colored LED turn on and then turn off again. Unplug the LED pigtail from the LED1 connection and plug it into the LED2 connection, again being careful as to the polarity. Run `./test_led.py` again. You should see the same thing. If either test failed, something is wrong - most likely you hooked up the patch wires to the wrong Pi pins or made a mistake assembling the control board. You'll need to troubleshoot this before continuing.
 - Run the motion sensor test: Run `./test_motion_detector.py`. Wave your hand in front of the motion sensor - it should cause the LED to light up. If you stay still, the LED should go out again. Once you've verified that this is working, hit Ctrl-C to stop the test. Again, if the test fails, check that you hooked up the wires to the correct pins and check the wiring of your control board. 
