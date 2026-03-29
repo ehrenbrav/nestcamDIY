@@ -46,44 +46,7 @@ APT_PACKAGES = [
     "iproute2",
 ]
 
-DEFAULT_ENV = """# NestCam configuration
-# This file is read by nestcam.service and nestcam-retention.service.
-
-LIVE_BIND=0.0.0.0
-LIVE_PORT=8080
-
-LORES_W=640
-LORES_H=480
-
-VIDEO_W=1280
-VIDEO_H=720
-FPS=20
-BITRATE=2000000
-
-RECORDINGS_ROOT=/var/lib/nestcam/recordings
-STATUS_FILE=/run/nestcam/status.txt
-
-# LAN-only is the primary default security model. Authentication is disabled by
-# default. If you later enable it, do not expose this service directly to the
-# internet.
-AUTH_ENABLED=0
-# LIVE_USER=
-# LIVE_PASS=
-
-# Leave blank to auto-detect via the default route.
-WIFI_IFACE=
-
-# Recording is disabled by default for initial field testing.
-RECORDING_ENABLED=0
-MIN_FREE_GB=2.0
-
-# Optional retention tuning. The retention service currently passes explicit
-# values in its unit file, so these are informational unless you customize the
-# unit.
-# RETENTION_SCRIPT=/opt/nestcam/retention.py
-# RETENTION_MAX_GB=80.0
-# RETENTION_MIN_FREE_GB=15.0
-"""
+DEFAULT_ENV_SOURCE = Path("services") / "nestcam.env"
 
 REBOOT_REQUIRED = False
 
@@ -135,14 +98,18 @@ def maybe_install_file(src: Path, dst: Path, mode: int) -> None:
         install_file(src, dst, mode)
 
 
-def write_default_env(path: Path, *, overwrite: bool) -> None:
-    ensure_dir(path.parent, 0o755)
-    if path.exists() and not overwrite:
-        print(f"Preserving existing env file: {path}")
+def write_default_env(src: Path, dst: Path, *, overwrite: bool) -> None:
+    if not src.exists():
+        die(f"default env file not found: {src}")
+
+    ensure_dir(dst.parent, 0o755)
+    if dst.exists() and not overwrite:
+        print(f"Preserving existing env file: {dst}")
         return
-    path.write_text(DEFAULT_ENV, encoding="utf-8")
-    path.chmod(0o640)
-    print(f"Wrote default env file: {path}")
+
+    shutil.copy2(src, dst)
+    dst.chmod(0o640)
+    print(f"Installed default env file: {src} -> {dst}")
 
 
 def apt_install(packages: Iterable[str], *, update: bool) -> None:
@@ -267,6 +234,7 @@ def validate_repo_layout(repo_root: Path) -> None:
         repo_root / "services" / "nestcam.service",
         repo_root / "services" / "nestcam-retention.service",
         repo_root / "services" / "nestcam-retention.timer",
+        repo_root / DEFAULT_ENV_SOURCE,
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -327,7 +295,7 @@ def main() -> int:
         enable_i2c()
 
     install_system_files(repo_root)
-    write_default_env(ENV_FILE, overwrite=args.replace_env)
+    write_default_env(repo_root / DEFAULT_ENV_SOURCE, ENV_FILE, overwrite=args.replace_env)
 
     systemd_reload()
     systemd_enable(start_now=not args.no_start)
