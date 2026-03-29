@@ -4,26 +4,43 @@ These instructions are intended to allow you to build the NestCamDIY using inexp
 
 Important Caveats
 This is intended for use on a private network and should not be exposed to the internet without additional security hardening.
+If you are using solar power, you will need to select the right size solar panels and positioning to provide enough juice to reliably power the system. That could take some tinkering and definitely depends on the time of year and your particular situation. There is an entire section on this below.
 
 Raspberry Pi Configuration
-1.1 Download the Raspberry Pi Imager from here: https://www.raspberrypi.com/software/.
+1.1 Download the Raspberry Pi Imager from here: https://www.raspberrypi.com/software/. You'll need to insert your new SD card into your computer using an SD card reader.
+-- Educational Background: What is a Raspberry Pi and why are we using one?
 
-1.2. Install the Raspberry Pi OS on your SD card following the instructions. You will need a name for your NestCamDIY, a RSA key or password that you'll use to access the Pi, and your wireless SSID and password.
--- Educational Background: What is an RSA key and why should I use one?
+1.2. Install the Raspberry Pi OS on your SD card following the instructions provided by the imager:
+- Select "Raspberry Pi Zero 2 W" as your device.
+- Select "Raspberry Pi OS (64-bit)" as your operating system.
+- Select the correct place to write the image. Be very careful here - you do NOT want to overwrite your hard drive or anything important! Check that the size indicated matches the size of your SD card.
+- Name your nestcam something easy to remember.
+- Select your timezone and keyboard layout.
+- Enter a username and password that you'd like to use for the Pi.
+- Enter the wifi network (the name and password) that you'd like the Pi to connect to. You can add additional networks later.
+- Enable SSH. You can use either password or public key authentication. Public key authentication is more secure but you'll need to take an additional step (just follow the instructions). It is worth learning how to do this if you don't know, but if you are in a hurry or frustrated, using a password is fine too so long as it is a strong one.
+-- Educational Background: What is a public key and why should I use one?
+- Disable Raspberry Pi Connect.
+- Double-check the selections and write the new image. This will take a minute or two. Once complete, remove the SD card.
 
 1.3. Put the adheasive heat sink that comes with the Raspberry Pi onto the black processor chip (not the silver colored metal box - that's the wifi chip). Next, solder header pins onto the Raspberry Pi. You'll need two rows of 20 header pins. When you solder these, use clamps to hold them in place so they are vertical and not slanted. The plastic pieces of the pins should be on the top of the board. As always, inspect afterwards for solder bridges or bad solder joints. Be careful to ensure the solder joints are 100% good, as bad soldering can lead to major debugging headaches later with hard-to-diagnose failures!
 
-1.3A. (Solar and Battery Only) Attach the UPS (Uninterruptable Power Supply) hat to the Raspberry using the standoff screws. Be sure that the pogo pins on the hat make good, clean contact with the bottom of the header pins on the Pi. Make sure the power switch is in the off position and attach the battery to the hat. Be extremely careful that the polarity is correct here! Triple-check that the red wire on the battery leads to the + side of the battery connecter on the hat and the black wire leads to the - side. For the super-paranoid, check the polarity with a multimeter. If you are using a larger battery than what comes with the UPS hat, use rubber bands to securely strap the Pi/Hat to the battery itself. 
+1.3A. (Solar and Battery Only) Attach the UPS (Uninterruptable Power Supply) hat to the Raspberry Pi using the standoff screws. Be sure that the pogo pins on the hat make good, clean contact with the bottom of the header pins on the Pi. Make sure the power switch is in the off position and attach the battery to the hat. Be extremely careful that the polarity is correct here! Triple-check that the red wire on the battery leads to the + side of the battery connecter on the hat and the black wire leads to the - side. For the super-paranoid, check the polarity with a multimeter. If you are using a larger battery than what comes with the UPS hat, use rubber bands to securely strap the Pi/Hat to the battery itself. 
 
 1.4. Insert the newly-written SD card into the Pi. Plug in the Pi using the PWR USB connection to a wall charger (if building a wired NestCamDIY) or to the USB-C power connection on the UPS hat (if using solar/battery). If you are using a UPS hat, switch the unit on.
 
-1.5. You should see a green LED light on the Pi light up and flicker a bit. Wait until it is steady green and try to connect to the Pi using your computer:
+1.5. You should see a green LED light on the Pi light up and flicker a bit. Wait until it is steady green and try to connect to the Pi using your computer - it could take a few minutes for the Pi to come up the first time, so be patient:
 - In a linux terminal, run `ssh <NAME-OF-YOUR-PI>`. This is the name you selected when you wrote the SD card (not your wifi SSID or your username).
 -- Educational Background: What is SSH? [ ]
 - If this fails, you'll need to troubleshoot why the Pi is not connecting to your wifi. Use ChatGPT (or similar) troubleshoot this common issue, as there are a number of potential causes.
-- Once you have access to the Pi, install git by running `sudo apt install git`.
+- Once you have access to the Pi, wait for it to finish any initial update tasks. Run `top` and watch until the CPU usage comes down to a percent or two, then hit `q` to exit.
+- Expand the filesystem to take up your entire SD card so you have as much room as possible for recordings: `sudo raspi-config` then "6 Advanced Options" -> "A1 Expand Filesystem".
+- While still in raspi-config, update the system: "8 Update". Anwser `y` to any questions and ait for this to complete.
+- Exit out of raspi-config.
+- Install git by running `sudo apt install git`.
 -- Educational Background: What is git? [ ]
 - Next, use git to clone the NestCamDIY repository: `git clone https://github.com/ehrenbrav/NestCamDIY`. This will put a copy of all the NestCamDIY software on your Pi.
+- Go into the project directory: `cd NestCamDIY`. Remember you can hit Tab for autocomplete to make typig faster.
 - Install the software, so all the pieces are put in the correct places on your Pi: `sudo python setup.py`. Once that completes successfully, shutdown the Pi for now until we need it again: `sudo shutdown -h now`. If you are using a UPS hat, switch the on-off switch to off once the LED on the Pi shows that it is off. If you are using a wired setup, simply pull out the power supply once the LED turns off.
 -- Educational Background: How the NestCamDIY software works. [ ]
 
