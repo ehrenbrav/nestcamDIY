@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-# NOTE: This software is intended for private LAN use only and is not designed
-# to be exposed directly to the public internet. If remote access is needed,
-# place it behind a properly secured reverse proxy, VPN, or other access
-# control layer rather than exposing this service itself.
 
 import base64
 import datetime as dt
@@ -15,46 +11,94 @@ import shutil
 import signal
 import socketserver
 import subprocess
-import sys
 import threading
 import time
 from http import server
-from pathlib import Path
 from threading import Condition
+from pathlib import Path
 
 import numpy as np
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder, MJPEGEncoder
 from picamera2.outputs import FileOutput
 
+try:
+    from gpiozero import OutputDevice
+except Exception:
+    OutputDevice = None
+
+# -------------------- Config (env-overridable) --------------------
+HOME = str(Path.home())
+
+# Where recordings are stored
+RECORDINGS_ROOT = os.environ.get("RECORDINGS_ROOT", os.path.join(HOME, "recordings"))
+
+# Enable or disable recording (in env file).
+RECORDING_ENABLED = bool(int(os.environ.get("RECORDING_ENABLED", "1")))
+
+# Disk guard: refuse to start new recordings if free space is too low.
+MIN_FREE_GB = float(os.environ.get("MIN_FREE_GB", "2.0"))
+# Optionally trigger retention when low space is detected
+RETENTION_SCRIPT = os.environ.get("RETENTION_SCRIPT", os.path.join(HOME, "nestcam", "retention.py"))
+RETENTION_MAX_GB = float(os.environ.get("RETENTION_MAX_GB", "4.0"))
+RETENTION_MIN_FREE_GB = float(os.environ.get("RETENTION_MIN_FREE_GB", str(MIN_FREE_GB)))
+RETENTION_COOLDOWN_SECONDS = float(os.environ.get("RETENTION_COOLDOWN_SECONDS", "60"))
+
+# Recorded video (H.264)
+VIDEO_SIZE = (int(os.environ.get("VIDEO_W", "1280")), int(os.environ.get("VIDEO_H", "720")))
+FPS = int(os.environ.get("FPS", "20"))
+BITRATE = int(os.environ.get("BITRATE", "2000000"))
+
+# Lores stream: motion detection + MJPEG live
+LORES_SIZE = (int(os.environ.get("LORES_W", "320")), int(os.environ.get("LORES_H", "240")))
+# Motion detection tuning
+PIXEL_DIFF = int(os.environ.get("PIXEL_DIFF", "12"))
+MOTION_FRACTION_TRIGGER = float(os.environ.get("MOTION_FRACTION_TRIGGER", "0.02"))
+
+# Motion clip behavior
+MIN_CLIP_SECONDS = float(os.environ.get("MIN_CLIP_SECONDS", "8"))
+QUIET_SECONDS_TO_STOP = float(os.environ.get("QUIET_SECONDS_TO_STOP", "6"))
+COOLDOWN_SECONDS = float(os.environ.get("COOLDOWN_SECONDS", "8"))
+SAMPLE_HZ = float(os.environ.get("SAMPLE_HZ", "8"))
+
+# Live viewing (browser MJPEG)
+LIVE_BIND = os.environ.get("LIVE_BIND", "0.0.0.0")
+LIVE_PORT = int(os.environ.get("LIVE_PORT"))
+LIVE_USER = os.environ.get("LIVE_USER")
+LIVE_PASS = os.environ.get("LIVE_PASS")
+LIVE_STOP_GRACE = float(os.environ.get("LIVE_STOP_GRACE", "2.0"))
+LIVE_RECORD_STOP_GRACE = float(os.environ.get("LIVE_RECORD_STOP_GRACE", "2.0"))
+
+# LAN-only restriction (Wi-Fi subnet only)
+ALLOW_LOCAL_NET_ONLY = True
+LAN_ONLY_FAIL_CLOSED = True
+LOCAL_NETS_TTL_SECONDS = float(os.environ.get("LOCAL_NETS_TTL_SECONDS", "60"))
+WIFI_IFACE_ENV = (os.environ.get("WIFI_IFACE") or "").strip()
+
+# IR lights
+IR_GPIO = int(os.environ.get("IR_GPIO", "18"))
+IR_ACTIVE_HIGH = bool(int(os.environ.get("IR_ACTIVE_HIGH", "1")))
 
 # -------------------- Helpers --------------------
-def env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def gb_to_bytes(x: float) -> int:
-    return int(x * (1024 ** 3))
+    return int(x * (1024**3))
 
 
-def ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
+def ensure_dir(path: str) -> None:
+    os.makedirs(path, exist_ok=True)
 
 
-def daily_dir(root: Path) -> Path:
+def daily_dir(root: str) -> str:
     now = dt.datetime.now()
-    path = root / f"{now.year:04d}" / f"{now.month:02d}" / f"{now.day:02d}"
+    path = os.path.join(root, f"{now.year:04d}", f"{now.month:02d}", f"{now.day:02d}")
     ensure_dir(path)
     return path
 
 
-def new_filename(root: Path, reason: str, ext: str) -> Path:
+def new_filename(root: str, reason: str, ext: str) -> str:
     now = dt.datetime.now().astimezone()
     ts = now.strftime("%Y-%m-%dT%H%M%S%z")
-    return daily_dir(root) / f"{ts}_{reason}.{ext}"
+    return os.path.join(daily_dir(root), f"{ts}_{reason}.{ext}")
 
 
 def timing_safe_stop_encoder(picam2: Picamera2, encoder_obj):
@@ -87,86 +131,22 @@ def wifi_iface() -> str:
 
 
 def get_local_ipv4_networks(iface_name: str):
-    nets = [ipaddress.ip_network("127.0.0.0/8")]
+    nets = [ipaddress.ip_network("127.0.0.0/8")]  # allow local testing on the Pi
     out = subprocess.check_output(["ip", "-j", "-4", "addr"], text=True)
     data = json.loads(out)
     for iface in data:
         if iface.get("ifname", "") != iface_name:
             continue
-        for addr_info in iface.get("addr_info", []):
-            if addr_info.get("family") != "inet":
+        for a in iface.get("addr_info", []):
+            if a.get("family") != "inet":
                 continue
-            ip = addr_info.get("local")
-            prefix_len = addr_info.get("prefixlen")
-            if ip and prefix_len is not None:
-                nets.append(ipaddress.ip_network(f"{ip}/{prefix_len}", strict=False))
+            ip = a.get("local")
+            plen = a.get("prefixlen")
+            if ip and plen is not None:
+                nets.append(ipaddress.ip_network(f"{ip}/{plen}", strict=False))
     return nets
 
 
-def build_page(lores_size: tuple[int, int]) -> str:
-    width, height = lores_size
-    return f"""\
-<html>
-<head><title>NestCam Live</title></head>
-<body>
-<h2>NestCam Live</h2>
-<p><a href=\"/status.txt\">status</a></p>
-<img src=\"/stream.mjpg\" width=\"{width}\" height=\"{height}\" />
-</body>
-</html>
-"""
-
-
-# -------------------- Config (env-overridable) --------------------
-APP_DIR = Path(__file__).resolve().parent
-
-RECORDINGS_ROOT = Path(os.getenv("RECORDINGS_ROOT", "/var/lib/nestcam/recordings"))
-STATUS_FILE = Path(os.getenv("STATUS_FILE", "/run/nestcam/status.txt"))
-INDEX_HTML = Path(os.getenv("INDEX_HTML", str(APP_DIR / "index.html")))
-RETENTION_SCRIPT = Path(os.getenv("RETENTION_SCRIPT", str(APP_DIR / "retention.py")))
-
-RECORDING_ENABLED = env_bool("RECORDING_ENABLED", True)
-AUTH_ENABLED = env_bool("AUTH_ENABLED", False)
-
-MIN_FREE_GB = float(os.getenv("MIN_FREE_GB", "2.0"))
-RETENTION_MAX_GB = float(os.getenv("RETENTION_MAX_GB", "4.0"))
-RETENTION_MIN_FREE_GB = float(os.getenv("RETENTION_MIN_FREE_GB", str(MIN_FREE_GB)))
-RETENTION_COOLDOWN_SECONDS = float(os.getenv("RETENTION_COOLDOWN_SECONDS", "60"))
-
-VIDEO_SIZE = (int(os.getenv("VIDEO_W", "1280")), int(os.getenv("VIDEO_H", "720")))
-FPS = int(os.getenv("FPS", "20"))
-BITRATE = int(os.getenv("BITRATE", "2000000"))
-
-LORES_SIZE = (int(os.getenv("LORES_W", "320")), int(os.getenv("LORES_H", "240")))
-
-PIXEL_DIFF = int(os.getenv("PIXEL_DIFF", "12"))
-MOTION_FRACTION_TRIGGER = float(os.getenv("MOTION_FRACTION_TRIGGER", "0.02"))
-
-MIN_CLIP_SECONDS = float(os.getenv("MIN_CLIP_SECONDS", "8"))
-QUIET_SECONDS_TO_STOP = float(os.getenv("QUIET_SECONDS_TO_STOP", "6"))
-COOLDOWN_SECONDS = float(os.getenv("COOLDOWN_SECONDS", "8"))
-SAMPLE_HZ = float(os.getenv("SAMPLE_HZ", "8"))
-
-LIVE_BIND = os.getenv("LIVE_BIND", "0.0.0.0")
-LIVE_PORT = int(os.getenv("LIVE_PORT", "8000"))
-LIVE_USER = os.getenv("LIVE_USER", "")
-LIVE_PASS = os.getenv("LIVE_PASS", "")
-
-LIVE_STOP_GRACE = float(os.getenv("LIVE_STOP_GRACE", "2.0"))
-LIVE_RECORD_STOP_GRACE = float(os.getenv("LIVE_RECORD_STOP_GRACE", "2.0"))
-
-ALLOW_LOCAL_NET_ONLY = env_bool("ALLOW_LOCAL_NET_ONLY", True)
-LAN_ONLY_FAIL_CLOSED = env_bool("LAN_ONLY_FAIL_CLOSED", True)
-LOCAL_NETS_TTL_SECONDS = float(os.getenv("LOCAL_NETS_TTL_SECONDS", "60"))
-WIFI_IFACE_ENV = (os.getenv("WIFI_IFACE") or "").strip()
-
-ensure_dir(RECORDINGS_ROOT)
-ensure_dir(STATUS_FILE.parent)
-
-PAGE = build_page(LORES_SIZE)
-
-
-# -------------------- LAN-only cache --------------------
 LOCAL_NETS = None
 LOCAL_NETS_LAST_REFRESH = 0.0
 LOCAL_NETS_LOCK = threading.Lock()
@@ -182,13 +162,9 @@ def refresh_local_nets_if_needed():
         try:
             LOCAL_NETS = get_local_ipv4_networks(iface)
             LOCAL_NETS_LAST_REFRESH = now
-            logging.info(
-                "LAN-only networks (iface=%s): %s",
-                iface,
-                ", ".join(str(net) for net in LOCAL_NETS),
-            )
-        except Exception as exc:
-            logging.warning("Could not derive local networks for %s: %s", iface, exc)
+            logging.info("LAN-only networks (iface=%s): %s", iface, ", ".join(str(n) for n in LOCAL_NETS))
+        except Exception as e:
+            logging.warning("Could not derive local networks for %s: %s", iface, e)
             LOCAL_NETS = []
             LOCAL_NETS_LAST_REFRESH = now
 
@@ -196,19 +172,16 @@ def refresh_local_nets_if_needed():
 def client_allowed(client_ip: str) -> bool:
     if not ALLOW_LOCAL_NET_ONLY:
         return True
-
     refresh_local_nets_if_needed()
     with LOCAL_NETS_LOCK:
         nets = list(LOCAL_NETS) if LOCAL_NETS is not None else []
-
     if not nets:
         return not LAN_ONLY_FAIL_CLOSED
-
     try:
         addr = ipaddress.ip_address(client_ip)
     except ValueError:
         return False
-    return any(addr in net for net in nets)
+    return any(addr in n for n in nets)
 
 
 # -------------------- Disk guard + retention trigger --------------------
@@ -216,8 +189,9 @@ RETENTION_LOCK = threading.Lock()
 LAST_RETENTION_RUN = 0.0
 
 
-def free_bytes_for_path(path: Path) -> int:
-    return shutil.disk_usage(path).free
+def free_bytes_for_path(path: str) -> int:
+    usage = shutil.disk_usage(path)
+    return usage.free
 
 
 def maybe_run_retention():
@@ -228,48 +202,56 @@ def maybe_run_retention():
             return
         LAST_RETENTION_RUN = now
 
-    script = RETENTION_SCRIPT
-    if not script.exists():
+    script = os.path.expanduser(RETENTION_SCRIPT)
+    if not os.path.exists(script):
         logging.warning("Retention script not found: %s", script)
         return
 
     cmd = [
-        sys.executable,
-        str(script),
-        "--root",
-        str(RECORDINGS_ROOT),
-        "--max-gb",
-        str(RETENTION_MAX_GB),
-        "--min-free-gb",
-        str(RETENTION_MIN_FREE_GB),
+        "/usr/bin/env", "python3", script,
+        "--root", RECORDINGS_ROOT,
+        "--max-gb", str(RETENTION_MAX_GB),
+        "--min-free-gb", str(RETENTION_MIN_FREE_GB),
     ]
     logging.warning("Low disk: running retention: %s", " ".join(cmd))
     try:
         subprocess.run(cmd, timeout=60, check=False)
-    except Exception as exc:
-        logging.warning("Retention run failed: %s", exc)
+    except Exception as e:
+        logging.warning("Retention run failed: %s", e)
 
 
 def disk_ok_for_recording() -> bool:
     ensure_dir(RECORDINGS_ROOT)
-    free_before = free_bytes_for_path(RECORDINGS_ROOT)
-    if free_before >= gb_to_bytes(MIN_FREE_GB):
+    free_b = free_bytes_for_path(RECORDINGS_ROOT)
+    if free_b >= gb_to_bytes(MIN_FREE_GB):
         return True
 
+    # Try retention once, then re-check
     maybe_run_retention()
-    free_after = free_bytes_for_path(RECORDINGS_ROOT)
-    if free_after >= gb_to_bytes(MIN_FREE_GB):
+    free_b2 = free_bytes_for_path(RECORDINGS_ROOT)
+    if free_b2 >= gb_to_bytes(MIN_FREE_GB):
         return True
 
     logging.error(
         "Disk too low to record: free=%.2f GB required>=%.2f GB",
-        free_after / (1024 ** 3),
-        MIN_FREE_GB,
+        free_b2 / (1024**3), MIN_FREE_GB,
     )
     return False
 
 
 # -------------------- MJPEG streaming --------------------
+PAGE = """\
+<html>
+<head><title>NestCam Live</title></head>
+<body>
+<h2>NestCam Live</h2>
+<p><a href="/status.txt">status</a></p>
+<img src="/stream.mjpg" width="640" height="480" />
+</body>
+</html>
+"""
+
+
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
         self.frame = None
@@ -281,8 +263,72 @@ class StreamingOutput(io.BufferedIOBase):
             self.condition.notify_all()
 
 
+class IRLightController:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.live_active = False
+        self.recording_active = False
+        self.device = None
+
+        if OutputDevice is None:
+            logging.warning("gpiozero unavailable; IR lights disabled")
+            return
+
+        try:
+            self.device = OutputDevice(
+                IR_GPIO,
+                active_high=IR_ACTIVE_HIGH,
+                initial_value=False,
+            )
+            logging.info("IR lights configured on GPIO%d", IR_GPIO)
+        except Exception as e:
+            logging.warning("Failed to initialize IR lights on GPIO%d: %s", IR_GPIO, e)
+            self.device = None
+
+    def _apply_locked(self):
+        if self.device is None:
+            return
+
+        want_on = self.live_active or self.recording_active
+        try:
+            if want_on:
+                self.device.on()
+            else:
+                self.device.off()
+        except Exception as e:
+            logging.warning("Failed to update IR lights: %s", e)
+
+    def set_live_active(self, active: bool):
+        with self.lock:
+            self.live_active = bool(active)
+            self._apply_locked()
+
+    def set_recording_active(self, active: bool):
+        with self.lock:
+            self.recording_active = bool(active)
+            self._apply_locked()
+
+    def is_on(self) -> bool:
+        with self.lock:
+            return self.live_active or self.recording_active
+
+    def close(self):
+        with self.lock:
+            self.live_active = False
+            self.recording_active = False
+            if self.device is None:
+                return
+            try:
+                self.device.off()
+                self.device.close()
+            except Exception as e:
+                logging.warning("Failed to close IR light device: %s", e)
+            finally:
+                self.device = None
+
+
 class LiveController:
-    def __init__(self, picam2: Picamera2, output: StreamingOutput):
+    def __init__(self, picam2: Picamera2, output: StreamingOutput, on_active_change=None):
         self.picam2 = picam2
         self.output = output
         self.lock = threading.Lock()
@@ -290,10 +336,12 @@ class LiveController:
         self.last_client_left = 0.0
         self.mjpeg_encoder = MJPEGEncoder()
         self.mjpeg_running = False
+        self.on_active_change = on_active_change
 
     def client_connected(self):
         with self.lock:
             self.clients += 1
+            active = self.clients > 0
             if not self.mjpeg_running:
                 logging.info("Starting MJPEG encoder (lores)")
                 timing_safe_start_encoder(
@@ -303,12 +351,17 @@ class LiveController:
                     name="lores",
                 )
                 self.mjpeg_running = True
+        if self.on_active_change:
+            self.on_active_change(active)
 
     def client_disconnected(self):
         with self.lock:
             self.clients = max(0, self.clients - 1)
+            active = self.clients > 0
             if self.clients == 0:
                 self.last_client_left = time.time()
+        if self.on_active_change:
+            self.on_active_change(active)
 
     def live_active(self) -> bool:
         with self.lock:
@@ -327,24 +380,16 @@ class LiveController:
                         logging.info("Stopping MJPEG encoder (no clients)")
                         try:
                             timing_safe_stop_encoder(self.picam2, self.mjpeg_encoder)
-                        except Exception as exc:
-                            logging.warning("stop_encoder(MJPEG) error: %s", exc)
+                        except Exception as e:
+                            logging.warning("stop_encoder(MJPEG) error: %s", e)
                         self.mjpeg_running = False
                         self.last_client_left = 0.0
 
 
-def auth_config_valid() -> bool:
-    return bool(LIVE_USER and LIVE_PASS)
-
-
 def authorized(headers) -> bool:
-    if not AUTH_ENABLED:
-        return True
-
     auth = headers.get("Authorization", "")
     if not auth.startswith("Basic "):
         return False
-
     try:
         raw = base64.b64decode(auth.split(" ", 1)[1]).decode("utf-8")
     except Exception:
@@ -355,7 +400,7 @@ def authorized(headers) -> bool:
 class StreamingHandler(server.BaseHTTPRequestHandler):
     live_controller: LiveController = None
     streaming_output: StreamingOutput = None
-    status_provider = None
+    status_provider = None  # callable -> bytes
 
     def do_GET(self):
         if not client_allowed(self.client_address[0]):
@@ -376,9 +421,9 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             return
 
         if self.path == "/index.html":
-            content = self._index_page_bytes()
+            content = PAGE.encode("utf-8")
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Type", "text/html")
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
@@ -407,32 +452,20 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                     with self.streaming_output.condition:
                         self.streaming_output.condition.wait()
                         frame = self.streaming_output.frame
-
-                    if frame is None:
-                        continue
-
                     self.wfile.write(b"--FRAME\r\n")
                     self.send_header("Content-Type", "image/jpeg")
                     self.send_header("Content-Length", str(len(frame)))
                     self.end_headers()
                     self.wfile.write(frame)
                     self.wfile.write(b"\r\n")
-            except Exception as exc:
-                logging.info("Live client disconnected: %s (%s)", self.client_address, exc)
+            except Exception as e:
+                logging.info("Live client disconnected: %s (%s)", self.client_address, e)
             finally:
                 self.live_controller.client_disconnected()
             return
 
         self.send_error(404)
         self.end_headers()
-
-    def _index_page_bytes(self) -> bytes:
-        if INDEX_HTML.exists():
-            try:
-                return INDEX_HTML.read_bytes()
-            except Exception as exc:
-                logging.warning("Could not read %s: %s", INDEX_HTML, exc)
-        return PAGE.encode("utf-8")
 
     def log_message(self, fmt, *args):
         logging.debug("%s - %s", self.address_string(), fmt % args)
@@ -448,17 +481,19 @@ class NestCamDaemon:
     def __init__(self):
         self.picam2 = Picamera2()
         self.prev_y = None
-
         self.recording = False
         self.record_start = 0.0
         self.last_motion = 0.0
         self.last_clip_end = 0.0
         self.record_reason = None
         self.h264_encoder = None
-
         self.stream_output = StreamingOutput()
-        self.live = LiveController(self.picam2, self.stream_output)
-
+        self.ir = IRLightController()
+        self.live = LiveController(
+            self.picam2,
+            self.stream_output,
+            on_active_change=self.ir.set_live_active,
+        )
         self.stop_event = threading.Event()
         self.state_lock = threading.Lock()
 
@@ -475,21 +510,20 @@ class NestCamDaemon:
 
     def motion_score(self) -> float:
         frame = self.picam2.capture_array("lores")
-        height = LORES_SIZE[1]
-        y_plane = frame[:height, :].astype(np.int16)
-
+        h = LORES_SIZE[1]
+        y = frame[:h, :].astype(np.int16)
         if self.prev_y is None:
-            self.prev_y = y_plane
+            self.prev_y = y
             return 0.0
-
-        diff = np.abs(y_plane - self.prev_y)
-        self.prev_y = y_plane
+        diff = np.abs(y - self.prev_y)
+        self.prev_y = y
         return float(np.mean(diff > PIXEL_DIFF))
 
     def start_recording(self, reason: str) -> bool:
         if not RECORDING_ENABLED:
             logging.info("Recording disabled; skipping start_recording(%s)", reason)
             return False
+
         if not disk_ok_for_recording():
             return False
 
@@ -497,10 +531,11 @@ class NestCamDaemon:
         self.h264_encoder = H264Encoder(bitrate=BITRATE)
 
         logging.info("REC start (%s): %s", reason, filename)
+
         timing_safe_start_encoder(
             self.picam2,
             self.h264_encoder,
-            FileOutput(str(filename)),
+            FileOutput(filename),
             name="main",
         )
 
@@ -509,16 +544,19 @@ class NestCamDaemon:
             self.record_reason = reason
             self.record_start = time.time()
             self.last_motion = self.record_start
+
+        self.ir.set_recording_active(True)
         return True
 
     def stop_recording(self):
         with self.state_lock:
             if not self.recording:
                 return
+
         try:
             timing_safe_stop_encoder(self.picam2, self.h264_encoder)
-        except Exception as exc:
-            logging.warning("stop_encoder(H264) error: %s", exc)
+        except Exception as e:
+            logging.warning("stop_encoder(H264) error: %s", e)
 
         with self.state_lock:
             self.h264_encoder = None
@@ -526,31 +564,25 @@ class NestCamDaemon:
             self.record_reason = None
             self.last_clip_end = time.time()
 
+        self.ir.set_recording_active(False)
         logging.info("REC stop")
 
     def status_text(self) -> bytes:
-        ensure_dir(RECORDINGS_ROOT)
-        free_bytes = free_bytes_for_path(RECORDINGS_ROOT)
+        free_b = free_bytes_for_path(RECORDINGS_ROOT)
         with self.state_lock:
-            recording = self.recording
+            rec = self.recording
             reason = self.record_reason
-
         txt = (
-            f"recording={recording}\n"
+            f"recording={rec}\n"
             f"record_reason={reason}\n"
             f"live_clients={self.live.client_count()}\n"
             f"recordings_root={RECORDINGS_ROOT}\n"
-            f"free_gb={free_bytes / (1024 ** 3):.2f}\n"
+            f"free_gb={free_b/(1024**3):.2f}\n"
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"
-            f"auth_enabled={AUTH_ENABLED}\n"
+            f"ir_on={self.ir.is_on()}\n"
         )
-        data = txt.encode("utf-8")
-        try:
-            STATUS_FILE.write_bytes(data)
-        except Exception as exc:
-            logging.debug("Could not write status file %s: %s", STATUS_FILE, exc)
-        return data
+        return txt.encode("utf-8")
 
     def run_loop(self):
         sleep_dt = 1.0 / max(1.0, SAMPLE_HZ)
@@ -559,15 +591,14 @@ class NestCamDaemon:
         while not self.stop_event.is_set():
             now = time.time()
             live_active = self.live.live_active()
-
+            # IMPORTANT: when live MJPEG is active, do not also grab lores frames for motion.
             if live_active:
                 motion = False
             else:
                 frac = self.motion_score()
                 motion = frac >= MOTION_FRACTION_TRIGGER
                 if motion:
-                    with self.state_lock:
-                        self.last_motion = now
+                    self.last_motion = now
 
             live_active = self.live.live_active()
             if not live_active:
@@ -583,6 +614,7 @@ class NestCamDaemon:
                 last_motion = self.last_motion
                 last_clip_end = self.last_clip_end
 
+            # Start rules
             if not recording:
                 if live_active:
                     if RECORDING_ENABLED:
@@ -593,11 +625,13 @@ class NestCamDaemon:
                         if RECORDING_ENABLED:
                             self.start_recording("motion")
             else:
+                # If live starts while motion is recording, roll over to a "live" file
                 if live_active and record_reason != "live":
                     self.stop_recording()
                     if RECORDING_ENABLED:
                         self.start_recording("live")
 
+            # Stop rules
             with self.state_lock:
                 recording = self.recording
                 record_reason = self.record_reason
@@ -620,37 +654,36 @@ class NestCamDaemon:
         StreamingHandler.live_controller = self.live
         StreamingHandler.streaming_output = self.stream_output
         StreamingHandler.status_provider = self.status_text
-
         httpd = ThreadedHTTPServer((LIVE_BIND, LIVE_PORT), StreamingHandler)
-        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-        thread.start()
-        auth_msg = "LAN-only + BasicAuth" if AUTH_ENABLED else "LAN-only"
-        logging.info("HTTP live server on http://<pi-ip>:%d/ (%s)", LIVE_PORT, auth_msg)
+        t = threading.Thread(target=httpd.serve_forever, daemon=True)
+        t.start()
+        logging.info("HTTP live server on http://<pi-ip>:%d/ (LAN-only + BasicAuth)", LIVE_PORT)
         return httpd
 
     def shutdown(self):
         self.stop_event.set()
+
         try:
             self.stop_recording()
         except Exception:
             pass
+
         try:
             if self.live.mjpeg_running:
                 timing_safe_stop_encoder(self.picam2, self.live.mjpeg_encoder)
         except Exception:
             pass
+
         try:
             self.picam2.stop()
         except Exception:
             pass
 
+        self.ir.close()
+
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-
-    if AUTH_ENABLED and not auth_config_valid():
-        raise SystemExit("AUTH_ENABLED=1 requires both LIVE_USER and LIVE_PASS")
-
     daemon = NestCamDaemon()
 
     def handle_exit(signum, frame):
@@ -662,16 +695,14 @@ def main():
     signal.signal(signal.SIGTERM, handle_exit)
 
     daemon.start_camera()
-    daemon.status_text()
-
     maint = threading.Thread(
         target=daemon.live.maintenance_loop,
         args=(daemon.stop_event,),
         daemon=True,
     )
     maint.start()
-
     httpd = daemon.start_http_server()
+
     try:
         daemon.run_loop()
     finally:
