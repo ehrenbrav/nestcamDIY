@@ -24,7 +24,7 @@ Raspberry Pi Configuration
 - Once you have access to the Pi, install git by running `sudo apt install git`.
 -- Educational Background: What is git? [ ]
 - Next, use git to clone the NestCamDIY repository: `git clone https://github.com/ehrenbrav/NestCamDIY`. This will put a copy of all the NestCamDIY software on your Pi.
-- Install the software, so all the pieces are put in the correct places on your Pi: `sudo python install.py`. Once that completes successfully, shutdown the Pi for now until we need it again: `sudo shutdown -h now`. If you are using a UPS hat, switch the on-off switch to off once the LED on the Pi shows that it is off. If you are using a wired setup, simply pull out the power supply once the LED turns off.
+- Install the software, so all the pieces are put in the correct places on your Pi: `sudo python setup.py`. Once that completes successfully, shutdown the Pi for now until we need it again: `sudo shutdown -h now`. If you are using a UPS hat, switch the on-off switch to off once the LED on the Pi shows that it is off. If you are using a wired setup, simply pull out the power supply once the LED turns off.
 -- Educational Background: How the NestCamDIY software works. [ ]
 
 Build the Hardware
