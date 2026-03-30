@@ -16,6 +16,8 @@ Limitations:
 """
 
 import argparse
+import errno
+import sys
 import time
 
 try:
@@ -38,10 +40,26 @@ def to_signed16(x: int) -> int:
     return x - 0x10000 if x & 0x8000 else x
 
 
+class INA219Error(Exception):
+    pass
+
+
 class INA219:
     def __init__(self, bus: int = 1, addr: int = 0x43):
         self.addr = addr
-        self.bus = SMBus(bus)
+        self.bus_number = bus
+        try:
+            self.bus = SMBus(bus)
+        except FileNotFoundError as exc:
+            raise INA219Error(
+                f"I2C bus {bus} is not available. Enable I2C or use --bus to select the correct bus."
+            ) from exc
+        except PermissionError as exc:
+            raise INA219Error(
+                f"Permission denied opening I2C bus {bus}. Try running with the permissions needed for /dev/i2c-{bus}."
+            ) from exc
+        except OSError as exc:
+            raise INA219Error(self._format_i2c_error(exc, during=f"opening I2C bus {bus}")) from exc
 
     def close(self) -> None:
         try:
@@ -49,12 +67,31 @@ class INA219:
         except Exception:
             pass
 
+    def _format_i2c_error(self, exc: OSError, during: str) -> str:
+        if exc.errno == errno.EREMOTEIO:
+            return (
+                f"No INA219/UPS HAT responded on I2C bus {self.bus_number} at address 0x{self.addr:02x} "
+                f"while {during}. Check that the UPS HAT is attached, powered, I2C is enabled, and the address is correct."
+            )
+        if exc.errno == errno.ENXIO:
+            return (
+                f"No device acknowledged on I2C bus {self.bus_number} at address 0x{self.addr:02x} "
+                f"while {during}. Check that the UPS HAT is attached and the address is correct."
+            )
+        return f"I2C error while {during}: {exc}"
+
     def read_word(self, reg: int) -> int:
-        raw = self.bus.read_word_data(self.addr, reg)
+        try:
+            raw = self.bus.read_word_data(self.addr, reg)
+        except OSError as exc:
+            raise INA219Error(self._format_i2c_error(exc, during=f"reading register 0x{reg:02x}")) from exc
         return swap16(raw)
 
     def write_word(self, reg: int, value: int) -> None:
-        self.bus.write_word_data(self.addr, reg, swap16(value & 0xFFFF))
+        try:
+            self.bus.write_word_data(self.addr, reg, swap16(value & 0xFFFF))
+        except OSError as exc:
+            raise INA219Error(self._format_i2c_error(exc, during=f"writing register 0x{reg:02x}")) from exc
 
     def configure_defaults(self) -> None:
         """
@@ -135,7 +172,7 @@ def main() -> int:
         "--shunt-ohms",
         type=float,
         default=0.01,
-        help="Shunt resistor value in ohms for current estimate (default: 0.1)",
+        help="Shunt resistor value in ohms for current estimate (default: 0.01)",
     )
     p.add_argument("--no-config", action="store_true", help="Do not write device configuration on startup")
 
@@ -185,7 +222,11 @@ def main() -> int:
 
     args = p.parse_args()
 
-    dev = INA219(bus=args.bus, addr=args.addr)
+    try:
+        dev = INA219(bus=args.bus, addr=args.addr)
+    except INA219Error as exc:
+        print(f"power_stats.py: {exc}", file=sys.stderr)
+        return 1
 
     remaining_mah = None  # set after we have first voltage/current sample
     avg_discharge_ma = None  # smoothed discharge current magnitude (positive mA)
@@ -266,6 +307,9 @@ def main() -> int:
 
     except KeyboardInterrupt:
         return 0
+    except INA219Error as exc:
+        print(f"power_stats.py: {exc}", file=sys.stderr)
+        return 1
     finally:
         dev.close()
 

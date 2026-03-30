@@ -1,4 +1,6 @@
-The NestCamDIY is a Raspberry Pi based video camera that can be installed in a birdhouse, squirrel-house or any other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar. It works with both ambient light and in complete darkness and streams a video feed to an address on your network, meaning you can view it using any browser. This allows live viewing from you phone, a computer, or even a dedicated video monitor.
+The NestCamDIY is a Raspberry Pi based video camera that can be installed in a birdhouse, squirrel-house or any other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar. It works with both ambient light and in complete darkness and streams a video feed to an address on your network, meaning you can view it using any browser. This allows live viewing from you phone, a computer, or even a dedicated video monitor. The interior of the box is illuminated by infrared lights, which are invisible to both birds and humans but make the image show up clearly on video (though with distorted colors).
+
+The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger and connect this to the device. Alternatively, you can use either a battery or solar setup. Both involve using an uninterruptible power supply to give the device power while you are swapping out the battery or when it is dark out. You can have leave a weatherproof battery somehwere convenient like at the base of the tree, and run a USB charging cord from it to the device. For solar, you'll need to experiment to find a suitable size solar panel and location. In sunny locations, this is easy, but definitely more challenging in cloudy weather or shaded sites. You'll need to use a large enough solar array coupled with a good size battery to get you through the night and less than ideal solar conditions.
 
 These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and (if you build your own birdbox) woodworking.
 
@@ -12,7 +14,7 @@ Raspberry Pi Configuration
 
 1.2. Install the Raspberry Pi OS on your SD card following the instructions provided by the imager:
 - Select "Raspberry Pi Zero 2 W" as your device.
-- Select "Raspberry Pi OS (64-bit)" as your operating system.
+- Select the default full Raspberry Pi OS (64-bit) as your operating system. Testing with Lite and 32-bit systems did not yield any meaningful power savings.
 - Select the correct place to write the image. Be very careful here - you do NOT want to overwrite your hard drive or anything important! Check that the size indicated matches the size of your SD card.
 - Name your nestcam something easy to remember.
 - Select your timezone and keyboard layout.
@@ -34,14 +36,11 @@ Raspberry Pi Configuration
 -- Educational Background: What is SSH? [ ]
 - If this fails, you'll need to troubleshoot why the Pi is not connecting to your wifi. Use ChatGPT (or similar) troubleshoot this common issue, as there are a number of potential causes.
 - Once you have access to the Pi, wait for it to finish any initial update tasks. Run `top` and watch until the CPU usage comes down to a percent or two, then hit `q` to exit.
-- Expand the filesystem to take up your entire SD card so you have as much room as possible for recordings: `sudo raspi-config` then "6 Advanced Options" -> "A1 Expand Filesystem".
-- While still in raspi-config, update the system: "8 Update". Anwser `y` to any questions and ait for this to complete.
-- Exit out of raspi-config.
 - Install git by running `sudo apt install git`.
 -- Educational Background: What is git? [ ]
 - Next, use git to clone the NestCamDIY repository: `git clone https://github.com/ehrenbrav/NestCamDIY`. This will put a copy of all the NestCamDIY software on your Pi.
 - Go into the project directory: `cd NestCamDIY`. Remember you can hit Tab for autocomplete to make typig faster.
-- Install the software, so all the pieces are put in the correct places on your Pi: `sudo python setup.py`. Once that completes successfully, shutdown the Pi for now until we need it again: `sudo shutdown -h now`. If you are using a UPS hat, switch the on-off switch to off once the LED on the Pi shows that it is off. If you are using a wired setup, simply pull out the power supply once the LED turns off.
+- Install the software, so all the pieces are put in the correct places on your Pi: `sudo python setup.py`. It might take a bit to install all the required dependencies since we're starting with a very bare-bones operating system. Once that completes successfully, shutdown the Pi for now until we need it again: `sudo shutdown -h now`. If you are using a UPS hat, switch the on-off switch to off once the LED on the Pi shows that it is off. If you are using a wired setup, simply pull out the power supply once the LED turns off.
 - Shut down the system - we'll next turn to building the hardware: `sudo shutdown -h now`.
 -- Educational Background: How the NestCamDIY software works. [ ]
 
@@ -129,7 +128,7 @@ The birdhouse (or other habitat) that you use depends on you. The size, shape of
 
 4.8. Connect the control board to the correct pins of the Pi as before, using the colored female-female wires.
 
-4.9. Connect the power supply cable. For powered setups, connect a 1 foot micro-USB extension cord into the PWR jack of the Pi. Route the cable through the notch in the enclosure, ensuring there is some slack both inside and outside of the enclosure. For battery and solar setups, connect a 1 foot USB-C extension cord into the charging jack of the Pi as above. For solar setups, in addition to this charging cable, attach the solar power cable you previously made and route it through the notch. 
+4.9. Connect the power supply cable. For powered setups, connect a 6 inch micro-USB extension cord into the PWR jack of the Pi. Route the cable through the notch in the enclosure, ensuring there is some slack both inside and outside of the enclosure. For battery and solar setups, connect a 6 inch USB-C extension cord into the charging jack of the Pi as above. For solar setups, in addition to this charging cable, attach the solar power cable you previously made and route it through the notch. 
 
 
 

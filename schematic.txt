@@ -1,0 +1,45 @@
+Raspberry Pi Zero 2 W header connections
+----------------------------------------
+
+Pin 1   (3.3V)   -> AM312 VCC
+Pin 2   (5V)     -> R1 and R2 supply
+Pin 6   (GND)    -> MOSFET source, AM312 GND, gate pulldown
+Pin 12  (GPIO18) -> gate resistor -> MOSFET gate   [PWM control for IR brightness]
+Pin 16  (GPIO23) -> AM312 OUT through 1k resistor
+
+
+IR LED + MOSFET + Motion Sensor schematic
+-----------------------------------------
+
+                    Raspberry Pi Zero 2 W
+
+  Pin 2 (5V) ----+----[ R1 680Ω ]----|>|----+
+                 |                    LED1   |
+                 |                           |
+                 +----[ R2 680Ω ]----|>|----+------ D
+                                      LED2          |
+                                                    |
+                                                N-MOSFET
+                                                    |
+Pin 12 (GPIO18) ----[ Rg 100Ω ]---------------------G
+                                                    |
+                                               [ Rpd 100kΩ ]
+                                                    |
+Pin 6 (GND) ----------------------------------------+------ S
+
+
+AM312 motion sensor
+-------------------
+
+Pin 1 (3.3V)  --------------------------------------------- AM312 VCC
+Pin 6 (GND)   --------------------------------------------- AM312 GND
+AM312 OUT ----[ R3 1kΩ ]----------------------------------- Pin 16 (GPIO23)
+
+
+
+Optional capacitor
+------------------
+
+Pin 2 (5V)  ----+----[ C1 10µF ]----+---- Pin 6 (GND)
+                 \___________________/
+                 place near LED/MOSFET power path
