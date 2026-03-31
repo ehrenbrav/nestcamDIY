@@ -24,10 +24,15 @@ from picamera2.encoders import H264Encoder, MJPEGEncoder
 from picamera2.outputs import FileOutput
 
 try:
-    from gpiozero import OutputDevice, PWMOutputDevice
+    from gpiozero import OutputDevice, PWMLED
 except Exception:
     OutputDevice = None
-    PWMOutputDevice = None
+    PWMLED = None
+
+try:
+    import RPi.GPIO as RPI_GPIO
+except Exception:
+    RPI_GPIO = None
 
 # -------------------- Config (env-overridable) --------------------
 INSTALL_ROOT = Path("/opt/nestcam")
@@ -288,67 +293,180 @@ class StreamingOutput(io.BufferedIOBase):
             self.condition.notify_all()
 
 
+class LedDriverBase:
+    backend_name = "unknown"
+
+    def set_brightness(self, value: float) -> None:
+        raise NotImplementedError
+
+    def off(self) -> None:
+        self.set_brightness(0.0)
+
+    def close(self) -> None:
+        raise NotImplementedError
+
+
+class RPiGPIODriver(LedDriverBase):
+    backend_name = "rpi_gpio_pwm"
+
+    def __init__(self, gpio: int, pwm_hz: float, active_high: bool) -> None:
+        if RPI_GPIO is None:
+            raise RuntimeError("RPi.GPIO module not available")
+
+        self.GPIO = RPI_GPIO
+        self.gpio = gpio
+        self.pwm_hz = pwm_hz
+        self.active_high = active_high
+        self.pwm = None
+
+        self.GPIO.setwarnings(False)
+        self.GPIO.setmode(self.GPIO.BCM)
+        self.GPIO.setup(self.gpio, self.GPIO.OUT, initial=self._off_level())
+        self.GPIO.output(self.gpio, self._off_level())
+
+    def _on_level(self):
+        return self.GPIO.HIGH if self.active_high else self.GPIO.LOW
+
+    def _off_level(self):
+        return self.GPIO.LOW if self.active_high else self.GPIO.HIGH
+
+    def _stop_pwm(self) -> None:
+        if self.pwm is not None:
+            try:
+                self.pwm.stop()
+            finally:
+                self.pwm = None
+
+    def _ensure_pwm(self) -> None:
+        if self.pwm is None:
+            self.pwm = self.GPIO.PWM(self.gpio, self.pwm_hz)
+            start_duty = 0.0 if self.active_high else 100.0
+            self.pwm.start(start_duty)
+
+    def _set_digital(self, on: bool) -> None:
+        self._stop_pwm()
+        self.GPIO.output(self.gpio, self._on_level() if on else self._off_level())
+
+    def set_brightness(self, value: float) -> None:
+        value = max(0.0, min(1.0, value))
+        if value <= 0.001:
+            self._set_digital(False)
+            return
+        if value >= 0.999:
+            self._set_digital(True)
+            return
+
+        self._ensure_pwm()
+        duty = value * 100.0 if self.active_high else (100.0 - (value * 100.0))
+        self.pwm.ChangeDutyCycle(duty)
+
+    def close(self) -> None:
+        try:
+            self._set_digital(False)
+        finally:
+            try:
+                self.GPIO.cleanup(self.gpio)
+            except Exception:
+                pass
+
+
+class GpioZeroPWMLEDDriver(LedDriverBase):
+    backend_name = "gpiozero_pwmled"
+
+    def __init__(self, gpio: int, active_high: bool) -> None:
+        if PWMLED is None:
+            raise RuntimeError("gpiozero PWMLED unavailable")
+        self.led = PWMLED(gpio, active_high=active_high, initial_value=0.0)
+
+    def set_brightness(self, value: float) -> None:
+        value = max(0.0, min(1.0, value))
+        if value >= 0.999:
+            self.led.on()
+        elif value <= 0.001:
+            self.led.off()
+        else:
+            self.led.value = value
+
+    def close(self) -> None:
+        self.led.close()
+
+
+class GpioZeroDigitalDriver(LedDriverBase):
+    backend_name = "gpiozero_digital"
+
+    def __init__(self, gpio: int, active_high: bool) -> None:
+        if OutputDevice is None:
+            raise RuntimeError("gpiozero OutputDevice unavailable")
+        self.device = OutputDevice(gpio, active_high=active_high, initial_value=False)
+
+    def set_brightness(self, value: float) -> None:
+        if value > 0.0:
+            self.device.on()
+        else:
+            self.device.off()
+
+    def close(self) -> None:
+        self.device.close()
+
+
+def build_ir_driver():
+    errors = []
+
+    try:
+        driver = RPiGPIODriver(IR_GPIO, IR_PWM_FREQUENCY, IR_ACTIVE_HIGH)
+        logging.info(
+            "IR lights configured on GPIO%d using RPi.GPIO PWM (brightness=%.2f freq=%.1f Hz)",
+            IR_GPIO,
+            IR_BRIGHTNESS,
+            IR_PWM_FREQUENCY,
+        )
+        return driver
+    except Exception as e:
+        errors.append(f"RPi.GPIO failed: {e}")
+
+    try:
+        driver = GpioZeroPWMLEDDriver(IR_GPIO, IR_ACTIVE_HIGH)
+        logging.info(
+            "IR lights configured on GPIO%d using gpiozero PWMLED (brightness=%.2f)",
+            IR_GPIO,
+            IR_BRIGHTNESS,
+        )
+        return driver
+    except Exception as e:
+        errors.append(f"gpiozero PWMLED failed: {e}")
+
+    try:
+        driver = GpioZeroDigitalDriver(IR_GPIO, IR_ACTIVE_HIGH)
+        logging.info("IR lights configured on GPIO%d using gpiozero digital output only", IR_GPIO)
+        return driver
+    except Exception as e:
+        errors.append(f"gpiozero digital failed: {e}")
+
+    logging.warning(
+        "Failed to initialize IR lights on GPIO%d. Details: %s",
+        IR_GPIO,
+        "; ".join(errors) if errors else "no GPIO backend available",
+    )
+    return None
+
+
 class IRLightController:
     def __init__(self):
         self.lock = threading.Lock()
         self.live_active = False
         self.recording_active = False
-        self.device = None
-        self.supports_brightness = False
-
-        if OutputDevice is None:
-            logging.warning("gpiozero unavailable; IR lights disabled")
-            return
-
-        if PWMOutputDevice is not None:
-            try:
-                self.device = PWMOutputDevice(
-                    IR_GPIO,
-                    active_high=IR_ACTIVE_HIGH,
-                    initial_value=0.0,
-                    frequency=IR_PWM_FREQUENCY,
-                )
-                self.supports_brightness = True
-                logging.info(
-                    "IR lights configured on GPIO%d with PWM brightness control (brightness=%.2f freq=%.1f Hz)",
-                    IR_GPIO,
-                    IR_BRIGHTNESS,
-                    IR_PWM_FREQUENCY,
-                )
-                return
-            except Exception as e:
-                logging.warning(
-                    "Failed to initialize PWM IR lights on GPIO%d: %s; falling back to digital output",
-                    IR_GPIO,
-                    e,
-                )
-
-        try:
-            self.device = OutputDevice(
-                IR_GPIO,
-                active_high=IR_ACTIVE_HIGH,
-                initial_value=False,
-            )
-            logging.info("IR lights configured on GPIO%d (digital on/off only)", IR_GPIO)
-        except Exception as e:
-            logging.warning("Failed to initialize IR lights on GPIO%d: %s", IR_GPIO, e)
-            self.device = None
+        self.driver = build_ir_driver()
+        self.driver_backend = self.driver.backend_name if self.driver is not None else "unavailable"
 
     def _apply_locked(self):
-        if self.device is None:
+        if self.driver is None:
             return
 
         want_on = self.live_active or self.recording_active
         try:
-            if self.supports_brightness:
-                self.device.value = IR_BRIGHTNESS if want_on else 0.0
-            else:
-                if want_on and IR_BRIGHTNESS > 0.0:
-                    self.device.on()
-                else:
-                    self.device.off()
+            self.driver.set_brightness(IR_BRIGHTNESS if want_on else 0.0)
         except Exception as e:
-            logging.warning("Failed to update IR lights: %s", e)
+            logging.warning("Failed to update IR lights via %s: %s", self.driver_backend, e)
 
     def set_live_active(self, active: bool):
         with self.lock:
@@ -362,27 +480,31 @@ class IRLightController:
 
     def is_on(self) -> bool:
         with self.lock:
-            return bool(self.live_active or self.recording_active) and IR_BRIGHTNESS > 0.0
+            return (
+                self.driver is not None
+                and (self.live_active or self.recording_active)
+                and IR_BRIGHTNESS > 0.0
+            )
 
     def brightness(self) -> float:
         return IR_BRIGHTNESS
+
+    def backend(self) -> str:
+        return self.driver_backend
 
     def close(self):
         with self.lock:
             self.live_active = False
             self.recording_active = False
-            if self.device is None:
+            if self.driver is None:
                 return
             try:
-                if self.supports_brightness:
-                    self.device.value = 0.0
-                else:
-                    self.device.off()
-                self.device.close()
+                self.driver.off()
+                self.driver.close()
             except Exception as e:
-                logging.warning("Failed to close IR light device: %s", e)
+                logging.warning("Failed to close IR light device via %s: %s", self.driver_backend, e)
             finally:
-                self.device = None
+                self.driver = None
 
 
 class LiveController:
@@ -660,6 +782,7 @@ class NestCamDaemon:
             f"wifi_iface={wifi_iface()}\n"
             f"ir_on={self.ir.is_on()}\n"
             f"ir_brightness={self.ir.brightness():.2f}\n"
+            f"ir_backend={self.ir.backend()}\n"
         )
         return txt.encode("utf-8")
 
