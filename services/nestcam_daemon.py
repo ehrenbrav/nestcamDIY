@@ -23,9 +23,10 @@ from picamera2.encoders import H264Encoder, MJPEGEncoder
 from picamera2.outputs import FileOutput
 
 try:
-    from gpiozero import OutputDevice
+    from gpiozero import OutputDevice, PWMOutputDevice
 except Exception:
     OutputDevice = None
+    PWMOutputDevice = None
 
 # -------------------- Config (env-overridable) --------------------
 HOME = str(Path.home())
@@ -78,6 +79,8 @@ WIFI_IFACE_ENV = (os.environ.get("WIFI_IFACE") or "").strip()
 # IR lights
 IR_GPIO = int(os.environ.get("IR_GPIO", "18"))
 IR_ACTIVE_HIGH = bool(int(os.environ.get("IR_ACTIVE_HIGH", "1")))
+IR_BRIGHTNESS = max(0.0, min(1.0, float(os.environ.get("IR_BRIGHTNESS", "1.0"))))
+IR_PWM_FREQUENCY = int(os.environ.get("IR_PWM_FREQUENCY", "500"))
 
 # -------------------- Helpers --------------------
 def gb_to_bytes(x: float) -> int:
@@ -269,21 +272,50 @@ class IRLightController:
         self.live_active = False
         self.recording_active = False
         self.device = None
+        self.supports_brightness = False
 
         if OutputDevice is None:
             logging.warning("gpiozero unavailable; IR lights disabled")
             return
 
-        try:
-            self.device = OutputDevice(
-                IR_GPIO,
-                active_high=IR_ACTIVE_HIGH,
-                initial_value=False,
-            )
-            logging.info("IR lights configured on GPIO%d", IR_GPIO)
-        except Exception as e:
-            logging.warning("Failed to initialize IR lights on GPIO%d: %s", IR_GPIO, e)
-            self.device = None
+        if PWMOutputDevice is not None:
+            try:
+                self.device = PWMOutputDevice(
+                    IR_GPIO,
+                    active_high=IR_ACTIVE_HIGH,
+                    initial_value=0.0,
+                    frequency=IR_PWM_FREQUENCY,
+                )
+                self.supports_brightness = True
+                logging.info(
+                    "IR lights configured on GPIO%d with PWM (brightness=%.2f, freq=%dHz)",
+                    IR_GPIO,
+                    IR_BRIGHTNESS,
+                    IR_PWM_FREQUENCY,
+                )
+            except Exception as e:
+                logging.warning(
+                    "Failed to initialize PWM IR lights on GPIO%d: %s; falling back to on/off output",
+                    IR_GPIO,
+                    e,
+                )
+                self.device = None
+
+        if self.device is None:
+            try:
+                self.device = OutputDevice(
+                    IR_GPIO,
+                    active_high=IR_ACTIVE_HIGH,
+                    initial_value=False,
+                )
+                logging.info(
+                    "IR lights configured on GPIO%d without PWM; requested brightness=%.2f will be treated as on/off",
+                    IR_GPIO,
+                    IR_BRIGHTNESS,
+                )
+            except Exception as e:
+                logging.warning("Failed to initialize IR lights on GPIO%d: %s", IR_GPIO, e)
+                self.device = None
 
     def _apply_locked(self):
         if self.device is None:
@@ -291,10 +323,13 @@ class IRLightController:
 
         want_on = self.live_active or self.recording_active
         try:
-            if want_on:
-                self.device.on()
+            if self.supports_brightness:
+                self.device.value = IR_BRIGHTNESS if want_on else 0.0
             else:
-                self.device.off()
+                if want_on and IR_BRIGHTNESS > 0.0:
+                    self.device.on()
+                else:
+                    self.device.off()
         except Exception as e:
             logging.warning("Failed to update IR lights: %s", e)
 
@@ -319,7 +354,10 @@ class IRLightController:
             if self.device is None:
                 return
             try:
-                self.device.off()
+                if self.supports_brightness:
+                    self.device.value = 0.0
+                else:
+                    self.device.off()
                 self.device.close()
             except Exception as e:
                 logging.warning("Failed to close IR light device: %s", e)
@@ -340,28 +378,33 @@ class LiveController:
 
     def client_connected(self):
         with self.lock:
+            was_active = self.clients > 0
             self.clients += 1
-            active = self.clients > 0
+            if not was_active and self.on_active_change:
+                self.on_active_change(True)
             if not self.mjpeg_running:
-                logging.info("Starting MJPEG encoder (lores)")
-                timing_safe_start_encoder(
-                    self.picam2,
-                    self.mjpeg_encoder,
-                    FileOutput(self.output),
-                    name="lores",
-                )
-                self.mjpeg_running = True
-        if self.on_active_change:
-            self.on_active_change(active)
+                try:
+                    logging.info("Starting MJPEG encoder (lores)")
+                    timing_safe_start_encoder(
+                        self.picam2,
+                        self.mjpeg_encoder,
+                        FileOutput(self.output),
+                        name="lores",
+                    )
+                    self.mjpeg_running = True
+                except Exception:
+                    if not was_active and self.on_active_change:
+                        self.on_active_change(False)
+                    self.clients = max(0, self.clients - 1)
+                    raise
 
     def client_disconnected(self):
         with self.lock:
             self.clients = max(0, self.clients - 1)
-            active = self.clients > 0
             if self.clients == 0:
                 self.last_client_left = time.time()
-        if self.on_active_change:
-            self.on_active_change(active)
+                if self.on_active_change:
+                    self.on_active_change(False)
 
     def live_active(self) -> bool:
         with self.lock:
@@ -528,24 +571,29 @@ class NestCamDaemon:
             return False
 
         filename = new_filename(RECORDINGS_ROOT, reason, "h264")
-        self.h264_encoder = H264Encoder(bitrate=BITRATE)
+        encoder = H264Encoder(bitrate=BITRATE)
 
         logging.info("REC start (%s): %s", reason, filename)
 
-        timing_safe_start_encoder(
-            self.picam2,
-            self.h264_encoder,
-            FileOutput(filename),
-            name="main",
-        )
+        self.ir.set_recording_active(True)
+        try:
+            timing_safe_start_encoder(
+                self.picam2,
+                encoder,
+                FileOutput(filename),
+                name="main",
+            )
+        except Exception:
+            self.ir.set_recording_active(False)
+            raise
 
         with self.state_lock:
+            self.h264_encoder = encoder
             self.recording = True
             self.record_reason = reason
             self.record_start = time.time()
             self.last_motion = self.record_start
 
-        self.ir.set_recording_active(True)
         return True
 
     def stop_recording(self):
@@ -581,6 +629,7 @@ class NestCamDaemon:
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"
             f"ir_on={self.ir.is_on()}\n"
+            f"ir_brightness={IR_BRIGHTNESS:.2f}\n"
         )
         return txt.encode("utf-8")
 
