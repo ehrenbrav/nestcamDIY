@@ -6,16 +6,17 @@ After=network-online.target
 [Service]
 Type=simple
 DynamicUser=yes
-SupplementaryGroups=video
-WorkingDirectory=/opt/nestcam
+SupplementaryGroups=video gpio
+RuntimeDirectory=nestcam
+StateDirectory=nestcam
+WorkingDirectory=/run/nestcam
+Environment=PYTHONUNBUFFERED=1
+Environment=LG_WD=/run/nestcam
+EnvironmentFile=-/etc/nestcam/nestcam.env
 ExecStartPre=/bin/sleep 5
 ExecStart=/usr/bin/python3 /opt/nestcam/nestcam_daemon.py
 Restart=always
 RestartSec=3
-Environment=PYTHONUNBUFFERED=1
-EnvironmentFile=-/etc/nestcam/nestcam.env
-StateDirectory=nestcam
-RuntimeDirectory=nestcam
 TimeoutStopSec=5
 KillMode=mixed
 SendSIGKILL=yes
