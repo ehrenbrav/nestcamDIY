@@ -67,8 +67,12 @@ VIDEO_SIZE = (int(os.environ.get("VIDEO_W", "1280")), int(os.environ.get("VIDEO_
 FPS = int(os.environ.get("FPS", "20"))
 BITRATE = int(os.environ.get("BITRATE", "2000000"))
 
-# Lores stream: motion detection + MJPEG live
-LORES_SIZE = (int(os.environ.get("LORES_W", "320")), int(os.environ.get("LORES_H", "240")))
+# Live MJPEG stream uses the lores camera stream.
+# Keep LORES_W/LORES_H for backward compatibility, but prefer LIVE_W/LIVE_H.
+LIVE_SIZE = (
+    int(os.environ.get("LIVE_W", os.environ.get("LORES_W", "960"))),
+    int(os.environ.get("LIVE_H", os.environ.get("LORES_H", "540"))),
+)
 # Motion detection tuning
 PIXEL_DIFF = int(os.environ.get("PIXEL_DIFF", "12"))
 MOTION_FRACTION_TRIGGER = float(os.environ.get("MOTION_FRACTION_TRIGGER", "0.02"))
@@ -258,13 +262,14 @@ def disk_ok_for_recording() -> bool:
 
 
 # -------------------- MJPEG streaming --------------------
-PAGE = """\
+PAGE = f"""\
 <html>
 <head><title>NestCam Live</title></head>
 <body>
 <h2>NestCam Live</h2>
 <p><a href="/status.txt">status</a></p>
-<img src="/stream.mjpg" width="640" height="480" />
+<p>live stream: {LIVE_SIZE[0]}x{LIVE_SIZE[1]}</p>
+<img src="/stream.mjpg" style="max-width: 100%; height: auto;" />
 </body>
 </html>
 """
@@ -526,16 +531,16 @@ class NestCamDaemon:
         ensure_dir(RECORDINGS_ROOT)
         config = self.picam2.create_video_configuration(
             main={"size": VIDEO_SIZE, "format": "YUV420"},
-            lores={"size": LORES_SIZE, "format": "YUV420"},
+            lores={"size": LIVE_SIZE, "format": "YUV420"},
             controls={"FrameRate": FPS},
         )
         self.picam2.configure(config)
         self.picam2.start()
-        logging.info("Camera started (main=%s lores=%s fps=%s)", VIDEO_SIZE, LORES_SIZE, FPS)
+        logging.info("Camera started (main=%s live=%s fps=%s)", VIDEO_SIZE, LIVE_SIZE, FPS)
 
     def motion_score(self) -> float:
         frame = self.picam2.capture_array("lores")
-        h = LORES_SIZE[1]
+        h = LIVE_SIZE[1]
         y = frame[:h, :].astype(np.int16)
         if self.prev_y is None:
             self.prev_y = y
@@ -602,6 +607,7 @@ class NestCamDaemon:
             f"record_reason={reason}\n"
             f"live_clients={self.live.client_count()}\n"
             f"recordings_root={RECORDINGS_ROOT}\n"
+            f"live_size={LIVE_SIZE[0]}x{LIVE_SIZE[1]}\n"
             f"free_gb={free_b/(1024**3):.2f}\n"
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"
