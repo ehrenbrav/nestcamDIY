@@ -73,6 +73,27 @@ VIDEO_SIZE = (int(os.environ.get("VIDEO_W", "1280")), int(os.environ.get("VIDEO_
 FPS = int(os.environ.get("FPS", "20"))
 BITRATE = int(os.environ.get("BITRATE", "2000000"))
 
+
+def optional_bool_env(name: str):
+    raw = os.environ.get(name)
+    if raw is None:
+        return None
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid boolean value for {name}: {raw!r}")
+
+
+AE_ENABLE = optional_bool_env("AE_ENABLE")
+EXPOSURE_TIME = os.environ.get("EXPOSURE_TIME")
+EXPOSURE_TIME = int(EXPOSURE_TIME) if EXPOSURE_TIME not in (None, "") else None
+ANALOGUE_GAIN = os.environ.get("ANALOGUE_GAIN")
+ANALOGUE_GAIN = float(ANALOGUE_GAIN) if ANALOGUE_GAIN not in (None, "") else None
+SATURATION = os.environ.get("SATURATION")
+SATURATION = float(SATURATION) if SATURATION not in (None, "") else None
+
 # Live MJPEG stream uses the lores camera stream.
 # Keep LORES_W/LORES_H for backward compatibility, but prefer LIVE_W/LIVE_H.
 LIVE_SIZE = (
@@ -693,14 +714,29 @@ class NestCamDaemon:
 
     def start_camera(self):
         ensure_dir(RECORDINGS_ROOT)
+        controls = {"FrameRate": FPS}
+        if AE_ENABLE is not None:
+            controls["AeEnable"] = AE_ENABLE
+        if EXPOSURE_TIME is not None:
+            controls["ExposureTime"] = EXPOSURE_TIME
+        if ANALOGUE_GAIN is not None:
+            controls["AnalogueGain"] = ANALOGUE_GAIN
+        if SATURATION is not None:
+            controls["Saturation"] = SATURATION
+
         config = self.picam2.create_video_configuration(
             main={"size": VIDEO_SIZE, "format": "YUV420"},
             lores={"size": LIVE_SIZE, "format": "YUV420"},
-            controls={"FrameRate": FPS},
+            controls=controls,
         )
         self.picam2.configure(config)
         self.picam2.start()
-        logging.info("Camera started (main=%s live=%s fps=%s)", VIDEO_SIZE, LIVE_SIZE, FPS)
+        logging.info(
+            "Camera started (main=%s live=%s controls=%s)",
+            VIDEO_SIZE,
+            LIVE_SIZE,
+            controls,
+        )
 
     def motion_score(self) -> float:
         frame = self.picam2.capture_array("lores")
@@ -777,6 +813,11 @@ class NestCamDaemon:
             f"live_clients={self.live.client_count()}\n"
             f"recordings_root={RECORDINGS_ROOT}\n"
             f"live_size={LIVE_SIZE[0]}x{LIVE_SIZE[1]}\n"
+            f"fps={FPS}\n"
+            f"ae_enable={AE_ENABLE}\n"
+            f"exposure_time={EXPOSURE_TIME}\n"
+            f"analogue_gain={ANALOGUE_GAIN}\n"
+            f"saturation={SATURATION}\n"
             f"free_gb={free_b/(1024**3):.2f}\n"
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"
