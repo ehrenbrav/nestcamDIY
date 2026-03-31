@@ -233,11 +233,25 @@ def create_recordings_symlink() -> None:
     symlink_path = home_dir / "recordings"
 
     if symlink_path.is_symlink():
-        current_target = symlink_path.resolve(strict=False)
-        if current_target == RECORDINGS_DIR:
-            print(f"Recordings symlink already exists: {symlink_path} -> {RECORDINGS_DIR}")
+        current_target_raw = Path(os.readlink(symlink_path))
+        if not current_target_raw.is_absolute():
+            current_target_raw = (symlink_path.parent / current_target_raw)
+
+        current_target_resolved = current_target_raw.resolve(strict=False)
+        expected_target_resolved = RECORDINGS_DIR.resolve(strict=False)
+
+        if current_target_resolved == expected_target_resolved:
+            print(
+                f"Recordings symlink already exists: {symlink_path} -> "
+                f"{current_target_raw} (resolved: {current_target_resolved})"
+            )
             return
-        die(f"existing symlink points elsewhere: {symlink_path} -> {current_target}")
+
+        die(
+            f"existing symlink points elsewhere: {symlink_path} -> "
+            f"{current_target_raw} (resolved: {current_target_resolved}); "
+            f"expected {RECORDINGS_DIR} (resolved: {expected_target_resolved})"
+        )
 
     if symlink_path.exists():
         die(f"cannot create recordings symlink because this path already exists: {symlink_path}")
