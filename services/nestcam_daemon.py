@@ -7,6 +7,7 @@ import ipaddress
 import json
 import logging
 import os
+import pwd
 import shutil
 import signal
 import socketserver
@@ -23,16 +24,32 @@ from picamera2.encoders import H264Encoder, MJPEGEncoder
 from picamera2.outputs import FileOutput
 
 try:
-    from gpiozero import OutputDevice, PWMOutputDevice
+    from gpiozero import OutputDevice
 except Exception:
     OutputDevice = None
-    PWMOutputDevice = None
 
 # -------------------- Config (env-overridable) --------------------
-HOME = str(Path.home())
+INSTALL_ROOT = Path("/opt/nestcam")
+STATE_DIR = Path("/var/lib/nestcam")
+
+
+def safe_home() -> str:
+    home = (os.environ.get("HOME") or "").strip()
+    if home:
+        return home
+    try:
+        pw = pwd.getpwuid(os.getuid())
+        if pw.pw_dir:
+            return pw.pw_dir
+    except Exception:
+        pass
+    return "/root" if os.geteuid() == 0 else "/tmp"
+
+
+HOME = safe_home()
 
 # Where recordings are stored
-RECORDINGS_ROOT = os.environ.get("RECORDINGS_ROOT", os.path.join(HOME, "recordings"))
+RECORDINGS_ROOT = os.environ.get("RECORDINGS_ROOT", str(STATE_DIR / "recordings"))
 
 # Enable or disable recording (in env file).
 RECORDING_ENABLED = bool(int(os.environ.get("RECORDING_ENABLED", "1")))
@@ -40,7 +57,7 @@ RECORDING_ENABLED = bool(int(os.environ.get("RECORDING_ENABLED", "1")))
 # Disk guard: refuse to start new recordings if free space is too low.
 MIN_FREE_GB = float(os.environ.get("MIN_FREE_GB", "2.0"))
 # Optionally trigger retention when low space is detected
-RETENTION_SCRIPT = os.environ.get("RETENTION_SCRIPT", os.path.join(HOME, "nestcam", "retention.py"))
+RETENTION_SCRIPT = os.environ.get("RETENTION_SCRIPT", str(INSTALL_ROOT / "retention.py"))
 RETENTION_MAX_GB = float(os.environ.get("RETENTION_MAX_GB", "4.0"))
 RETENTION_MIN_FREE_GB = float(os.environ.get("RETENTION_MIN_FREE_GB", str(MIN_FREE_GB)))
 RETENTION_COOLDOWN_SECONDS = float(os.environ.get("RETENTION_COOLDOWN_SECONDS", "60"))
@@ -64,9 +81,9 @@ SAMPLE_HZ = float(os.environ.get("SAMPLE_HZ", "8"))
 
 # Live viewing (browser MJPEG)
 LIVE_BIND = os.environ.get("LIVE_BIND", "0.0.0.0")
-LIVE_PORT = int(os.environ.get("LIVE_PORT"))
-LIVE_USER = os.environ.get("LIVE_USER")
-LIVE_PASS = os.environ.get("LIVE_PASS")
+LIVE_PORT = int(os.environ.get("LIVE_PORT", "8080"))
+LIVE_USER = (os.environ.get("LIVE_USER") or "").strip()
+LIVE_PASS = (os.environ.get("LIVE_PASS") or "").strip()
 LIVE_STOP_GRACE = float(os.environ.get("LIVE_STOP_GRACE", "2.0"))
 LIVE_RECORD_STOP_GRACE = float(os.environ.get("LIVE_RECORD_STOP_GRACE", "2.0"))
 
@@ -79,8 +96,6 @@ WIFI_IFACE_ENV = (os.environ.get("WIFI_IFACE") or "").strip()
 # IR lights
 IR_GPIO = int(os.environ.get("IR_GPIO", "18"))
 IR_ACTIVE_HIGH = bool(int(os.environ.get("IR_ACTIVE_HIGH", "1")))
-IR_BRIGHTNESS = max(0.0, min(1.0, float(os.environ.get("IR_BRIGHTNESS", "1.0"))))
-IR_PWM_FREQUENCY = int(os.environ.get("IR_PWM_FREQUENCY", "500"))
 
 # -------------------- Helpers --------------------
 def gb_to_bytes(x: float) -> int:
@@ -272,50 +287,21 @@ class IRLightController:
         self.live_active = False
         self.recording_active = False
         self.device = None
-        self.supports_brightness = False
 
         if OutputDevice is None:
             logging.warning("gpiozero unavailable; IR lights disabled")
             return
 
-        if PWMOutputDevice is not None:
-            try:
-                self.device = PWMOutputDevice(
-                    IR_GPIO,
-                    active_high=IR_ACTIVE_HIGH,
-                    initial_value=0.0,
-                    frequency=IR_PWM_FREQUENCY,
-                )
-                self.supports_brightness = True
-                logging.info(
-                    "IR lights configured on GPIO%d with PWM (brightness=%.2f, freq=%dHz)",
-                    IR_GPIO,
-                    IR_BRIGHTNESS,
-                    IR_PWM_FREQUENCY,
-                )
-            except Exception as e:
-                logging.warning(
-                    "Failed to initialize PWM IR lights on GPIO%d: %s; falling back to on/off output",
-                    IR_GPIO,
-                    e,
-                )
-                self.device = None
-
-        if self.device is None:
-            try:
-                self.device = OutputDevice(
-                    IR_GPIO,
-                    active_high=IR_ACTIVE_HIGH,
-                    initial_value=False,
-                )
-                logging.info(
-                    "IR lights configured on GPIO%d without PWM; requested brightness=%.2f will be treated as on/off",
-                    IR_GPIO,
-                    IR_BRIGHTNESS,
-                )
-            except Exception as e:
-                logging.warning("Failed to initialize IR lights on GPIO%d: %s", IR_GPIO, e)
-                self.device = None
+        try:
+            self.device = OutputDevice(
+                IR_GPIO,
+                active_high=IR_ACTIVE_HIGH,
+                initial_value=False,
+            )
+            logging.info("IR lights configured on GPIO%d", IR_GPIO)
+        except Exception as e:
+            logging.warning("Failed to initialize IR lights on GPIO%d: %s", IR_GPIO, e)
+            self.device = None
 
     def _apply_locked(self):
         if self.device is None:
@@ -323,13 +309,10 @@ class IRLightController:
 
         want_on = self.live_active or self.recording_active
         try:
-            if self.supports_brightness:
-                self.device.value = IR_BRIGHTNESS if want_on else 0.0
+            if want_on:
+                self.device.on()
             else:
-                if want_on and IR_BRIGHTNESS > 0.0:
-                    self.device.on()
-                else:
-                    self.device.off()
+                self.device.off()
         except Exception as e:
             logging.warning("Failed to update IR lights: %s", e)
 
@@ -354,10 +337,7 @@ class IRLightController:
             if self.device is None:
                 return
             try:
-                if self.supports_brightness:
-                    self.device.value = 0.0
-                else:
-                    self.device.off()
+                self.device.off()
                 self.device.close()
             except Exception as e:
                 logging.warning("Failed to close IR light device: %s", e)
@@ -378,33 +358,28 @@ class LiveController:
 
     def client_connected(self):
         with self.lock:
-            was_active = self.clients > 0
             self.clients += 1
-            if not was_active and self.on_active_change:
-                self.on_active_change(True)
+            active = self.clients > 0
             if not self.mjpeg_running:
-                try:
-                    logging.info("Starting MJPEG encoder (lores)")
-                    timing_safe_start_encoder(
-                        self.picam2,
-                        self.mjpeg_encoder,
-                        FileOutput(self.output),
-                        name="lores",
-                    )
-                    self.mjpeg_running = True
-                except Exception:
-                    if not was_active and self.on_active_change:
-                        self.on_active_change(False)
-                    self.clients = max(0, self.clients - 1)
-                    raise
+                logging.info("Starting MJPEG encoder (lores)")
+                timing_safe_start_encoder(
+                    self.picam2,
+                    self.mjpeg_encoder,
+                    FileOutput(self.output),
+                    name="lores",
+                )
+                self.mjpeg_running = True
+        if self.on_active_change:
+            self.on_active_change(active)
 
     def client_disconnected(self):
         with self.lock:
             self.clients = max(0, self.clients - 1)
+            active = self.clients > 0
             if self.clients == 0:
                 self.last_client_left = time.time()
-                if self.on_active_change:
-                    self.on_active_change(False)
+        if self.on_active_change:
+            self.on_active_change(active)
 
     def live_active(self) -> bool:
         with self.lock:
@@ -429,7 +404,13 @@ class LiveController:
                         self.last_client_left = 0.0
 
 
+def auth_required() -> bool:
+    return bool(LIVE_USER or LIVE_PASS)
+
+
 def authorized(headers) -> bool:
+    if not auth_required():
+        return True
     auth = headers.get("Authorization", "")
     if not auth.startswith("Basic "):
         return False
@@ -453,7 +434,8 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
         if not authorized(self.headers):
             self.send_response(401)
-            self.send_header("WWW-Authenticate", 'Basic realm="NestCam"')
+            if auth_required():
+                self.send_header("WWW-Authenticate", 'Basic realm="NestCam"')
             self.end_headers()
             return
 
@@ -571,29 +553,24 @@ class NestCamDaemon:
             return False
 
         filename = new_filename(RECORDINGS_ROOT, reason, "h264")
-        encoder = H264Encoder(bitrate=BITRATE)
+        self.h264_encoder = H264Encoder(bitrate=BITRATE)
 
         logging.info("REC start (%s): %s", reason, filename)
 
-        self.ir.set_recording_active(True)
-        try:
-            timing_safe_start_encoder(
-                self.picam2,
-                encoder,
-                FileOutput(filename),
-                name="main",
-            )
-        except Exception:
-            self.ir.set_recording_active(False)
-            raise
+        timing_safe_start_encoder(
+            self.picam2,
+            self.h264_encoder,
+            FileOutput(filename),
+            name="main",
+        )
 
         with self.state_lock:
-            self.h264_encoder = encoder
             self.recording = True
             self.record_reason = reason
             self.record_start = time.time()
             self.last_motion = self.record_start
 
+        self.ir.set_recording_active(True)
         return True
 
     def stop_recording(self):
@@ -629,7 +606,6 @@ class NestCamDaemon:
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"
             f"ir_on={self.ir.is_on()}\n"
-            f"ir_brightness={IR_BRIGHTNESS:.2f}\n"
         )
         return txt.encode("utf-8")
 
