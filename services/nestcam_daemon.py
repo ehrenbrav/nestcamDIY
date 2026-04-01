@@ -15,10 +15,8 @@ import subprocess
 import threading
 import time
 from http import server
-from threading import Condition
 from pathlib import Path
 
-import numpy as np
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder, MJPEGEncoder
 from picamera2.outputs import FileOutput
@@ -100,15 +98,12 @@ LIVE_SIZE = (
     int(os.environ.get("LIVE_W", os.environ.get("LORES_W", "960"))),
     int(os.environ.get("LIVE_H", os.environ.get("LORES_H", "540"))),
 )
-# Motion detection tuning
-PIXEL_DIFF = int(os.environ.get("PIXEL_DIFF", "12"))
-MOTION_FRACTION_TRIGGER = float(os.environ.get("MOTION_FRACTION_TRIGGER", "0.02"))
 
 # Motion clip behavior
 MIN_CLIP_SECONDS = float(os.environ.get("MIN_CLIP_SECONDS", "8"))
 QUIET_SECONDS_TO_STOP = float(os.environ.get("QUIET_SECONDS_TO_STOP", "6"))
 COOLDOWN_SECONDS = float(os.environ.get("COOLDOWN_SECONDS", "8"))
-SAMPLE_HZ = float(os.environ.get("SAMPLE_HZ", "8"))
+CONTROL_LOOP_HZ = float(os.environ.get("CONTROL_LOOP_HZ", "10"))
 
 # Live viewing (browser MJPEG)
 LIVE_BIND = os.environ.get("LIVE_BIND", "0.0.0.0")
@@ -129,6 +124,7 @@ IR_GPIO = int(os.environ.get("IR_GPIO", "18"))
 IR_ACTIVE_HIGH = bool(int(os.environ.get("IR_ACTIVE_HIGH", "1")))
 IR_BRIGHTNESS = max(0.0, min(1.0, float(os.environ.get("IR_BRIGHTNESS", "1.0"))))
 IR_PWM_FREQUENCY = float(os.environ.get("IR_PWM_FREQUENCY", "500"))
+
 
 # -------------------- Helpers --------------------
 def gb_to_bytes(x: float) -> int:
@@ -306,12 +302,16 @@ PAGE = f"""\
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
         self.frame = None
-        self.condition = Condition()
+        self.condition = threading.Condition()
 
     def write(self, buf):
         with self.condition:
             self.frame = buf
             self.condition.notify_all()
+
+    def clear(self):
+        with self.condition:
+            self.frame = None
 
 
 class LedDriverBase:
@@ -529,38 +529,19 @@ class IRLightController:
 
 
 class LiveController:
-    def __init__(self, picam2: Picamera2, output: StreamingOutput, on_active_change=None):
-        self.picam2 = picam2
-        self.output = output
+    def __init__(self, on_active_change=None):
         self.lock = threading.Lock()
         self.clients = 0
         self.last_client_left = 0.0
-        self.mjpeg_encoder = MJPEGEncoder()
-        self.mjpeg_running = False
         self.on_active_change = on_active_change
 
     def client_connected(self):
-        start_mjpeg = False
         with self.lock:
             self.clients += 1
             active = self.clients > 0
-            if not self.mjpeg_running:
-                start_mjpeg = True
-
+            self.last_client_left = 0.0
         if self.on_active_change:
             self.on_active_change(active)
-
-        if start_mjpeg:
-            with self.lock:
-                if not self.mjpeg_running:
-                    logging.info("Starting MJPEG encoder (lores)")
-                    timing_safe_start_encoder(
-                        self.picam2,
-                        self.mjpeg_encoder,
-                        FileOutput(self.output),
-                        name="lores",
-                    )
-                    self.mjpeg_running = True
 
     def client_disconnected(self):
         with self.lock:
@@ -579,19 +560,12 @@ class LiveController:
         with self.lock:
             return self.clients
 
-    def maintenance_loop(self, stop_event: threading.Event):
-        while not stop_event.is_set():
-            time.sleep(0.5)
-            with self.lock:
-                if self.mjpeg_running and self.clients == 0 and self.last_client_left:
-                    if (time.time() - self.last_client_left) >= LIVE_STOP_GRACE:
-                        logging.info("Stopping MJPEG encoder (no clients)")
-                        try:
-                            timing_safe_stop_encoder(self.picam2, self.mjpeg_encoder)
-                        except Exception as e:
-                            logging.warning("stop_encoder(MJPEG) error: %s", e)
-                        self.mjpeg_running = False
-                        self.last_client_left = 0.0
+    def seconds_since_last_client_left(self):
+        with self.lock:
+            if self.clients > 0 or self.last_client_left == 0.0:
+                return None
+            return time.time() - self.last_client_left
+
 
 
 def auth_required() -> bool:
@@ -665,8 +639,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             try:
                 while True:
                     with self.streaming_output.condition:
-                        self.streaming_output.condition.wait()
+                        self.streaming_output.condition.wait(timeout=1.0)
                         frame = self.streaming_output.frame
+                    if frame is None:
+                        continue
                     self.wfile.write(b"--FRAME\r\n")
                     self.send_header("Content-Type", "image/jpeg")
                     self.send_header("Content-Length", str(len(frame)))
@@ -691,29 +667,26 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, server.HTTPServer):
     daemon_threads = True
 
 
-# -------------------- Motion + recording --------------------
+# -------------------- Live + recording --------------------
 class NestCamDaemon:
     def __init__(self):
-        self.picam2 = Picamera2()
-        self.prev_y = None
+        self.picam2 = None
+        self.camera_running = False
         self.recording = False
         self.record_start = 0.0
-        self.last_motion = 0.0
+        self.last_motion_event = 0.0
         self.last_clip_end = 0.0
         self.record_reason = None
         self.h264_encoder = None
+        self.mjpeg_encoder = None
+        self.mjpeg_running = False
         self.stream_output = StreamingOutput()
         self.ir = IRLightController()
-        self.live = LiveController(
-            self.picam2,
-            self.stream_output,
-            on_active_change=self.ir.set_live_active,
-        )
+        self.live = LiveController(on_active_change=self.ir.set_live_active)
         self.stop_event = threading.Event()
         self.state_lock = threading.Lock()
 
-    def start_camera(self):
-        ensure_dir(RECORDINGS_ROOT)
+    def build_camera_controls(self):
         controls = {"FrameRate": FPS}
         if AE_ENABLE is not None:
             controls["AeEnable"] = AE_ENABLE
@@ -723,14 +696,47 @@ class NestCamDaemon:
             controls["AnalogueGain"] = ANALOGUE_GAIN
         if SATURATION is not None:
             controls["Saturation"] = SATURATION
+        return controls
 
-        config = self.picam2.create_video_configuration(
-            main={"size": VIDEO_SIZE, "format": "YUV420"},
-            lores={"size": LIVE_SIZE, "format": "YUV420"},
-            controls=controls,
-        )
-        self.picam2.configure(config)
-        self.picam2.start()
+    def start_camera(self):
+        with self.state_lock:
+            if self.camera_running:
+                return
+
+        controls = self.build_camera_controls()
+        ensure_dir(RECORDINGS_ROOT)
+        picam2 = None
+        try:
+            picam2 = Picamera2()
+            config = picam2.create_video_configuration(
+                main={"size": VIDEO_SIZE, "format": "YUV420"},
+                lores={"size": LIVE_SIZE, "format": "YUV420"},
+                controls=controls,
+            )
+            picam2.configure(config)
+            picam2.start()
+        except Exception:
+            if picam2 is not None:
+                try:
+                    picam2.close()
+                except Exception:
+                    pass
+            raise
+
+        with self.state_lock:
+            if self.camera_running:
+                try:
+                    picam2.stop()
+                except Exception:
+                    pass
+                try:
+                    picam2.close()
+                except Exception:
+                    pass
+                return
+            self.picam2 = picam2
+            self.camera_running = True
+
         logging.info(
             "Camera started (main=%s live=%s controls=%s)",
             VIDEO_SIZE,
@@ -738,16 +744,84 @@ class NestCamDaemon:
             controls,
         )
 
-    def motion_score(self) -> float:
-        frame = self.picam2.capture_array("lores")
-        h = LIVE_SIZE[1]
-        y = frame[:h, :].astype(np.int16)
-        if self.prev_y is None:
-            self.prev_y = y
-            return 0.0
-        diff = np.abs(y - self.prev_y)
-        self.prev_y = y
-        return float(np.mean(diff > PIXEL_DIFF))
+    def stop_camera(self):
+        with self.state_lock:
+            if not self.camera_running:
+                return
+            picam2 = self.picam2
+            self.picam2 = None
+            self.camera_running = False
+
+        self.stream_output.clear()
+
+        try:
+            picam2.stop()
+        except Exception as e:
+            logging.warning("Camera stop error: %s", e)
+        try:
+            picam2.close()
+        except Exception as e:
+            logging.warning("Camera close error: %s", e)
+        logging.info("Camera stopped")
+
+    def start_mjpeg(self):
+        with self.state_lock:
+            if self.mjpeg_running:
+                return
+
+        self.start_camera()
+        self.stream_output.clear()
+        encoder = MJPEGEncoder()
+        with self.state_lock:
+            picam2 = self.picam2
+        try:
+            timing_safe_start_encoder(
+                picam2,
+                encoder,
+                FileOutput(self.stream_output),
+                name="lores",
+            )
+        except Exception:
+            try:
+                timing_safe_stop_encoder(picam2, encoder)
+            except Exception:
+                pass
+            raise
+
+        with self.state_lock:
+            self.mjpeg_encoder = encoder
+            self.mjpeg_running = True
+        logging.info("Starting MJPEG encoder (lores)")
+
+    def stop_mjpeg(self):
+        with self.state_lock:
+            if not self.mjpeg_running:
+                return
+            encoder = self.mjpeg_encoder
+            picam2 = self.picam2
+
+        try:
+            if picam2 is not None:
+                timing_safe_stop_encoder(picam2, encoder)
+        except Exception as e:
+            logging.warning("stop_encoder(MJPEG) error: %s", e)
+
+        with self.state_lock:
+            self.mjpeg_encoder = None
+            self.mjpeg_running = False
+        self.stream_output.clear()
+        logging.info("Stopping MJPEG encoder (lores)")
+
+    def motion_event_triggered(self) -> bool:
+        """Placeholder for future PIR-triggered recording.
+
+        Replace this stub with the actual PIR event path. It should return True
+        when an external motion event requests that a recording begin.
+
+        Important: the eventual PIR integration should be latched or queued so a
+        short pulse cannot be missed between control-loop iterations.
+        """
+        return False
 
     def start_recording(self, reason: str) -> bool:
         if not RECORDING_ENABLED:
@@ -757,15 +831,19 @@ class NestCamDaemon:
         if not disk_ok_for_recording():
             return False
 
+        self.start_camera()
         filename = new_filename(RECORDINGS_ROOT, reason, "h264")
         encoder = H264Encoder(bitrate=BITRATE)
 
         logging.info("REC start (%s): %s", reason, filename)
 
+        with self.state_lock:
+            picam2 = self.picam2
+
         self.ir.set_recording_active(True)
         try:
             timing_safe_start_encoder(
-                self.picam2,
+                picam2,
                 encoder,
                 FileOutput(filename),
                 name="main",
@@ -779,7 +857,7 @@ class NestCamDaemon:
             self.recording = True
             self.record_reason = reason
             self.record_start = time.time()
-            self.last_motion = self.record_start
+            self.last_motion_event = self.record_start
 
         return True
 
@@ -787,9 +865,12 @@ class NestCamDaemon:
         with self.state_lock:
             if not self.recording:
                 return
+            encoder = self.h264_encoder
+            picam2 = self.picam2
 
         try:
-            timing_safe_stop_encoder(self.picam2, self.h264_encoder)
+            if picam2 is not None:
+                timing_safe_stop_encoder(picam2, encoder)
         except Exception as e:
             logging.warning("stop_encoder(H264) error: %s", e)
 
@@ -802,15 +883,26 @@ class NestCamDaemon:
         self.ir.set_recording_active(False)
         logging.info("REC stop")
 
+    def maybe_stop_idle_camera(self):
+        with self.state_lock:
+            busy = self.recording or self.mjpeg_running
+        if not busy:
+            self.stop_camera()
+
     def status_text(self) -> bytes:
+        ensure_dir(RECORDINGS_ROOT)
         free_b = free_bytes_for_path(RECORDINGS_ROOT)
         with self.state_lock:
             rec = self.recording
             reason = self.record_reason
+            camera_running = self.camera_running
+            mjpeg_running = self.mjpeg_running
         txt = (
+            f"camera_running={camera_running}\n"
             f"recording={rec}\n"
             f"record_reason={reason}\n"
             f"live_clients={self.live.client_count()}\n"
+            f"mjpeg_running={mjpeg_running}\n"
             f"recordings_root={RECORDINGS_ROOT}\n"
             f"live_size={LIVE_SIZE[0]}x{LIVE_SIZE[1]}\n"
             f"fps={FPS}\n"
@@ -828,69 +920,92 @@ class NestCamDaemon:
         return txt.encode("utf-8")
 
     def run_loop(self):
-        sleep_dt = 1.0 / max(1.0, SAMPLE_HZ)
-        live_ended_at = None
+        sleep_dt = 1.0 / max(1.0, CONTROL_LOOP_HZ)
 
         while not self.stop_event.is_set():
             now = time.time()
             live_active = self.live.live_active()
-            # IMPORTANT: when live MJPEG is active, do not also grab lores frames for motion.
-            if live_active:
-                motion = False
-            else:
-                frac = self.motion_score()
-                motion = frac >= MOTION_FRACTION_TRIGGER
-                if motion:
-                    self.last_motion = now
-
-            live_active = self.live.live_active()
-            if not live_active:
-                if live_ended_at is None:
-                    live_ended_at = now
-            else:
-                live_ended_at = None
+            motion_event = self.motion_event_triggered()
 
             with self.state_lock:
                 recording = self.recording
                 record_reason = self.record_reason
                 record_start = self.record_start
-                last_motion = self.last_motion
+                last_motion_event = self.last_motion_event
                 last_clip_end = self.last_clip_end
+                mjpeg_running = self.mjpeg_running
+
+            # Start live streaming pipeline only while needed.
+            if live_active and not mjpeg_running:
+                try:
+                    self.start_mjpeg()
+                except Exception as e:
+                    logging.exception("Failed to start MJPEG pipeline: %s", e)
+                    self.maybe_stop_idle_camera()
+                with self.state_lock:
+                    mjpeg_running = self.mjpeg_running
 
             # Start rules
             if not recording:
                 if live_active:
                     if RECORDING_ENABLED:
-                        self.start_recording("live")
+                        try:
+                            self.start_recording("live")
+                        except Exception as e:
+                            logging.exception("Failed to start live recording: %s", e)
+                            self.ir.set_recording_active(False)
+                            self.maybe_stop_idle_camera()
                 else:
                     in_cooldown = (now - last_clip_end) < COOLDOWN_SECONDS
-                    if motion and not in_cooldown:
+                    if motion_event and not in_cooldown:
                         if RECORDING_ENABLED:
-                            self.start_recording("motion")
+                            try:
+                                self.start_recording("motion")
+                            except Exception as e:
+                                logging.exception("Failed to start motion recording: %s", e)
+                                self.ir.set_recording_active(False)
+                                self.maybe_stop_idle_camera()
             else:
+                if motion_event:
+                    with self.state_lock:
+                        self.last_motion_event = now
                 # If live starts while motion is recording, roll over to a "live" file
                 if live_active and record_reason != "live":
                     self.stop_recording()
                     if RECORDING_ENABLED:
-                        self.start_recording("live")
+                        try:
+                            self.start_recording("live")
+                        except Exception as e:
+                            logging.exception("Failed to roll over to live recording: %s", e)
+                            self.ir.set_recording_active(False)
+                            self.maybe_stop_idle_camera()
 
-            # Stop rules
+            # Refresh state after possible start/rollover.
             with self.state_lock:
                 recording = self.recording
                 record_reason = self.record_reason
                 record_start = self.record_start
-                last_motion = self.last_motion
+                last_motion_event = self.last_motion_event
 
+            # Stop rules
             if recording:
                 if record_reason == "live" and not live_active:
-                    if live_ended_at is not None and (now - live_ended_at) >= LIVE_RECORD_STOP_GRACE:
+                    left_for = self.live.seconds_since_last_client_left()
+                    if left_for is not None and left_for >= LIVE_RECORD_STOP_GRACE:
                         self.stop_recording()
                 elif not live_active:
                     clip_len = now - record_start
-                    quiet_for = now - last_motion
+                    quiet_for = now - last_motion_event
                     if clip_len >= MIN_CLIP_SECONDS and quiet_for >= QUIET_SECONDS_TO_STOP:
                         self.stop_recording()
 
+            left_for = self.live.seconds_since_last_client_left()
+            with self.state_lock:
+                mjpeg_running = self.mjpeg_running
+            if mjpeg_running and not live_active and left_for is not None and left_for >= LIVE_STOP_GRACE:
+                self.stop_mjpeg()
+
+            self.maybe_stop_idle_camera()
             time.sleep(sleep_dt)
 
     def start_http_server(self):
@@ -900,7 +1015,11 @@ class NestCamDaemon:
         httpd = ThreadedHTTPServer((LIVE_BIND, LIVE_PORT), StreamingHandler)
         t = threading.Thread(target=httpd.serve_forever, daemon=True)
         t.start()
-        logging.info("HTTP live server on http://<pi-ip>:%d/ (LAN-only%s)", LIVE_PORT, " + BasicAuth" if auth_required() else "")
+        logging.info(
+            "HTTP live server on http://<pi-ip>:%d/ (LAN-only%s)",
+            LIVE_PORT,
+            " + BasicAuth" if auth_required() else "",
+        )
         return httpd
 
     def shutdown(self):
@@ -912,13 +1031,12 @@ class NestCamDaemon:
             pass
 
         try:
-            if self.live.mjpeg_running:
-                timing_safe_stop_encoder(self.picam2, self.live.mjpeg_encoder)
+            self.stop_mjpeg()
         except Exception:
             pass
 
         try:
-            self.picam2.stop()
+            self.stop_camera()
         except Exception:
             pass
 
@@ -937,13 +1055,6 @@ def main():
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
 
-    daemon.start_camera()
-    maint = threading.Thread(
-        target=daemon.live.maintenance_loop,
-        args=(daemon.stop_event,),
-        daemon=True,
-    )
-    maint.start()
     httpd = daemon.start_http_server()
 
     try:
