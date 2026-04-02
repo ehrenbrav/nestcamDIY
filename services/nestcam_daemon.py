@@ -154,9 +154,8 @@ def format_size(num_bytes: int) -> str:
 
 
 def parse_recording_datetime(path: Path):
-    name = path.name
     try:
-        ts_text = name.split("_", 1)[0]
+        ts_text = path.name.split("_", 1)[0]
         return dt.datetime.strptime(ts_text, "%Y-%m-%dT%H%M%S%z")
     except Exception:
         return None
@@ -170,27 +169,22 @@ def recording_entries(root: Path):
             continue
         try:
             stat = path.stat()
-        except OSError as exc:
-            logging.warning("Could not stat recording %s: %s", path, exc)
-            continue
-        try:
             rel = path.relative_to(root).as_posix()
-        except ValueError:
+        except Exception as exc:
+            logging.warning("Could not inspect recording %s: %s", path, exc)
             continue
 
         recorded_at = parse_recording_datetime(path)
         sort_ts = recorded_at.timestamp() if recorded_at is not None else stat.st_mtime
+        entries.append({
+            "path": path,
+            "rel": rel,
+            "size": stat.st_size,
+            "mtime": stat.st_mtime,
+            "recorded_at": recorded_at,
+            "sort_ts": sort_ts,
+        })
 
-        entries.append(
-            {
-                "path": path,
-                "rel": rel,
-                "mtime": stat.st_mtime,
-                "size": stat.st_size,
-                "recorded_at": recorded_at,
-                "sort_ts": sort_ts,
-            }
-        )
     entries.sort(key=lambda item: item["sort_ts"], reverse=True)
     return entries
 
@@ -236,6 +230,17 @@ def build_recordings_page(root: Path) -> bytes:
 </html>
 """
     return page.encode("utf-8")
+
+
+def guess_recording_content_type(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".h264", ".264"}:
+        return "video/h264"
+    if suffix in {".mjpg", ".mjpeg"}:
+        return "video/x-motion-jpeg"
+
+    content_type, _ = mimetypes.guess_type(path.name)
+    return content_type or "application/octet-stream"
 
 
 # -------------------- Config (env-overridable) --------------------
@@ -538,17 +543,6 @@ def authorized(headers) -> bool:
     return raw == f"{LIVE_USER}:{LIVE_PASS}"
 
 
-def guess_recording_content_type(path: Path) -> str:
-    suffix = path.suffix.lower()
-    if suffix in {".h264", ".264"}:
-        return "video/h264"
-    if suffix in {".mjpg", ".mjpeg"}:
-        return "video/x-motion-jpeg"
-
-    content_type, _ = mimetypes.guess_type(path.name)
-    return content_type or "application/octet-stream"
-
-
 class StreamingHandler(server.BaseHTTPRequestHandler):
     live_controller: LiveController = None
     streaming_output: StreamingOutput = None
@@ -570,30 +564,6 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
         route = parsed.path
         query = parse_qs(parsed.query)
 
-        if route == "/":
-            self.send_response(301)
-            self.send_header("Location", "/index.html")
-            self.end_headers()
-            return
-
-        if route == "/index.html":
-            content = self._index_page_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(content)))
-            self.end_headers()
-            self.wfile.write(content)
-            return
-
-        if route == "/status.txt":
-            content = self.status_provider() if self.status_provider else b"status unavailable\n"
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Content-Length", str(len(content)))
-            self.end_headers()
-            self.wfile.write(content)
-            return
-
         if route == "/recordings":
             content = build_recordings_page(RECORDINGS_ROOT)
             self.send_response(200)
@@ -612,7 +582,31 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self._serve_recording(rel_path, as_attachment=as_attachment)
             return
 
-        if route == "/stream.mjpg":
+        if self.path == "/":
+            self.send_response(301)
+            self.send_header("Location", "/index.html")
+            self.end_headers()
+            return
+
+        if self.path == "/index.html":
+            content = self._index_page_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        if self.path == "/status.txt":
+            content = self.status_provider() if self.status_provider else b"status unavailable\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        if self.path == "/stream.mjpg":
             self.send_response(200)
             self.send_header("Age", "0")
             self.send_header("Cache-Control", "no-cache, private")
@@ -660,13 +654,11 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_error(500, "Could not access recording")
             return
 
-        content_type = guess_recording_content_type(path)
-
         disposition = "attachment" if as_attachment else "inline"
         filename = path.name.replace("\\", "_").replace('"', "_")
 
         self.send_response(200)
-        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Type", guess_recording_content_type(path))
         self.send_header("Content-Length", str(stat.st_size))
         self.send_header("Content-Disposition", f'{disposition}; filename="{filename}"')
         self.end_headers()
@@ -682,7 +674,19 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
     def _index_page_bytes(self) -> bytes:
         if INDEX_HTML.exists():
             try:
-                return INDEX_HTML.read_bytes()
+                raw = INDEX_HTML.read_bytes()
+                try:
+                    text = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    return raw
+
+                if "/recordings" not in text:
+                    nav = '<p><a href="/recordings">recordings</a></p>'
+                    if "</body>" in text:
+                        text = text.replace("</body>", nav + "\n</body>", 1)
+                    else:
+                        text += "\n" + nav + "\n"
+                return text.encode("utf-8")
             except Exception as exc:
                 logging.warning("Could not read %s: %s", INDEX_HTML, exc)
         return PAGE.encode("utf-8")
