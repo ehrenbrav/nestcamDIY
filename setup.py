@@ -44,7 +44,6 @@ APT_PACKAGES = [
     "python3-smbus2",
     "i2c-tools",
     "iproute2",
-    "acl",
 ]
 
 DEFAULT_ENV_SOURCE = Path("services") / "nestcam.env"
@@ -224,38 +223,6 @@ def resolve_invoking_user_home() -> Path | None:
     return None
 
 
-def resolve_invoking_username() -> str | None:
-    sudo_user = os.environ.get("SUDO_USER")
-    if sudo_user and sudo_user != "root":
-        return sudo_user
-
-    try:
-        username = pwd.getpwuid(os.getuid()).pw_name
-    except KeyError:
-        return None
-
-    if username == "root":
-        return None
-    return username
-
-
-def grant_recordings_access() -> None:
-    username = resolve_invoking_username()
-    if not username:
-        print("Warning: could not determine a non-root user for recordings access ACLs.")
-        return
-
-    setfacl = shutil.which("setfacl")
-    if not setfacl:
-        print("Warning: setfacl not found; skipping recordings access ACL setup.")
-        return
-
-    run([setfacl, "-m", f"u:{username}:rx", str(STATE_DIR)])
-    run([setfacl, "-R", "-m", f"u:{username}:rwX", str(RECORDINGS_DIR)])
-    run([setfacl, "-d", "-m", f"u:{username}:rwX", str(RECORDINGS_DIR)])
-    print(f"Granted user {username!r} read/write access to recordings via ACLs.")
-
-
 def create_recordings_symlink() -> None:
     home_dir = resolve_invoking_user_home()
     if home_dir is None:
@@ -384,7 +351,6 @@ def main() -> int:
     install_system_files(repo_root)
     write_default_env(repo_root / DEFAULT_ENV_SOURCE, ENV_FILE, overwrite=args.replace_env)
     create_recordings_symlink()
-    grant_recordings_access()
 
     systemd_reload()
     systemd_enable(start_now=not args.no_start)
