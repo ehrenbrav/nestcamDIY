@@ -211,6 +211,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print every sampled sensor value instead of only changes",
     )
+    parser.add_argument(
+        "--no-led-test",
+        action="store_true",
+        help="Test motion sensor only, skip LED initialization (use when daemon is running)",
+    )
     return parser.parse_args()
 
 
@@ -222,30 +227,37 @@ def main() -> int:
     if args.poll_interval <= 0:
         print("--poll-interval must be greater than zero", file=sys.stderr)
         return 2
-    if not (0.0 <= args.led_brightness <= 1.0):
+    if not args.no_led_test and not (0.0 <= args.led_brightness <= 1.0):
         print("--led-brightness must be between 0.0 and 1.0", file=sys.stderr)
         return 2
 
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
-    _LED = build_led_driver()
-    _MOTION = build_motion_reader()
-    _LED.off()
+    if not args.no_led_test:
+        _LED = build_led_driver()
+        _LED.off()
 
-    print(f"Monitoring motion on BCM{MOTION_GPIO} (physical pin 16).")
-    print(f"Driving LED on BCM{LED_GPIO} (physical pin 12).")
-    print("Wave your hand in front of the sensor. Press Ctrl-C to stop.")
+    _MOTION = build_motion_reader()
+
+    if args.no_led_test:
+        print(f"Monitoring motion on BCM{MOTION_GPIO} (physical pin 16) - LED test disabled.")
+        print("Wave your hand in front of the sensor. Press Ctrl-C to stop.")
+    else:
+        print(f"Monitoring motion on BCM{MOTION_GPIO} (physical pin 16).")
+        print(f"Driving LED on BCM{LED_GPIO} (physical pin 12).")
+        print("Wave your hand in front of the sensor. Press Ctrl-C to stop.")
 
     last_value: Optional[int] = None
 
     try:
         while True:
             value = _MOTION.read()
-            if value:
-                _LED.set_brightness(args.led_brightness)
-            else:
-                _LED.off()
+            if not args.no_led_test:
+                if value:
+                    _LED.set_brightness(args.led_brightness)
+                else:
+                    _LED.off()
 
             if args.print_all or value != last_value:
                 state = "MOTION" if value else "idle"
@@ -254,7 +266,10 @@ def main() -> int:
 
             time.sleep(args.poll_interval)
     except KeyboardInterrupt:
-        print("\nInterrupted. Turning LED off.")
+        if args.no_led_test:
+            print("\nInterrupted. Exiting.")
+        else:
+            print("\nInterrupted. Turning LED off.")
         cleanup_and_exit(0)
 
 
