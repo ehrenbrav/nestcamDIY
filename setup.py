@@ -250,40 +250,10 @@ def grant_recordings_access() -> None:
         print("Warning: setfacl not found; skipping recordings access ACL setup.")
         return
 
-    resolved_state_dir = STATE_DIR.resolve(strict=False)
-    resolved_recordings_dir = RECORDINGS_DIR.resolve(strict=False)
-
-    # With DynamicUser=yes and StateDirectory=nestcam, systemd may keep the
-    # real state under /var/lib/private/nestcam and expose /var/lib/nestcam as
-    # a symlink. In that case the user also needs execute permission on the
-    # private parent directories to traverse the symlink target.
-    traverse_paths: list[Path] = []
-    if resolved_state_dir != STATE_DIR or str(resolved_recordings_dir).startswith("/var/lib/private/"):
-        current = resolved_state_dir
-        private_root = Path("/var/lib/private")
-        if private_root.exists():
-            traverse_paths.append(private_root)
-        while current != current.parent and str(current).startswith("/var/lib/private"):
-            traverse_paths.append(current)
-            current = current.parent
-
-    seen: set[Path] = set()
-    for path in traverse_paths:
-        if path in seen or not path.exists():
-            continue
-        run([setfacl, "-m", f"u:{username}:x", str(path)])
-        seen.add(path)
-
-    if STATE_DIR.exists():
-        run([setfacl, "-m", f"u:{username}:rx", str(STATE_DIR)])
-
-    target_recordings_dir = resolved_recordings_dir if resolved_recordings_dir.exists() else RECORDINGS_DIR
-    run([setfacl, "-R", "-m", f"u:{username}:rwX", str(target_recordings_dir)])
-    run([setfacl, "-d", "-m", f"u:{username}:rwX", str(target_recordings_dir)])
-    print(
-        f"Granted user {username!r} read/write access to recordings via ACLs at "
-        f"{target_recordings_dir}."
-    )
+    run([setfacl, "-m", f"u:{username}:rx", str(STATE_DIR)])
+    run([setfacl, "-R", "-m", f"u:{username}:rwX", str(RECORDINGS_DIR)])
+    run([setfacl, "-d", "-m", f"u:{username}:rwX", str(RECORDINGS_DIR)])
+    print(f"Granted user {username!r} read/write access to recordings via ACLs.")
 
 
 def create_recordings_symlink() -> None:
