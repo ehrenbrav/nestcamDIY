@@ -40,7 +40,6 @@ BOOT_CONFIG = Path("/boot/firmware/config.txt")
 
 APT_PACKAGES = [
     "python3-picamera2",
-    "python3-numpy",
     "python3-smbus",
     "python3-smbus2",
     "i2c-tools",
