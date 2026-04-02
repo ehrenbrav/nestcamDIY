@@ -139,12 +139,128 @@ def get_local_ipv4_networks(iface_name: str):
 def build_page(lores_size: tuple[int, int]) -> str:
     width, height = lores_size
     return f"""\
-<html>
-<head><title>NestCam Live</title></head>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NestCam Live</title>
+  <style>
+    :root {{
+      color-scheme: dark;
+      --bg: #0f172a;
+      --bg2: #111827;
+      --panel: #111827;
+      --border: #334155;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --accent2: #93c5fd;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      color: var(--text);
+    }}
+    .wrap {{
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }}
+    .topbar {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }}
+    h1 {{
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }}
+    .subtitle {{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }}
+    .nav {{
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }}
+    .nav a {{
+      color: var(--text);
+      text-decoration: none;
+      background: rgba(17, 24, 39, 0.88);
+      border: 1px solid var(--border);
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+    }}
+    .nav a:hover {{
+      border-color: var(--accent);
+      color: white;
+    }}
+    .panel {{
+      background: rgba(17, 24, 39, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }}
+    .stream-frame {{
+      background: black;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }}
+    .stream-frame img {{
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: {width} / {height};
+      background: black;
+    }}
+    .meta {{
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }}
+    .meta strong {{ color: var(--accent2); font-weight: 600; }}
+  </style>
+</head>
 <body>
-<h2>NestCam Live</h2>
-<p><a href=\"/status.txt\">status</a> | <a href=\"/recordings\">recordings</a></p>
-<img src=\"/stream.mjpg\" width=\"{width}\" height=\"{height}\" />
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>NestCam</h1>
+        <div class="subtitle">Live preview from the birdhouse camera.</div>
+      </div>
+      <nav class="nav">
+        <a href="/index.html">Live</a>
+        <a href="/recordings">Recordings</a>
+        <a href="/status.txt">Status</a>
+      </nav>
+    </div>
+    <section class="panel">
+      <div class="stream-frame">
+        <img src="/stream.mjpg" alt="NestCam live stream" />
+      </div>
+      <div class="meta">
+        <span><strong>Preview resolution:</strong> {width} × {height}</span>
+        <span>Refreshes continuously while this page is open.</span>
+      </div>
+    </section>
+  </div>
 </body>
 </html>
 """
@@ -226,25 +342,162 @@ def build_recordings_page(root: Path) -> bytes:
         rel_quoted = quote(entry["rel"], safe="/")
         size_text = html.escape(format_size(entry["size"]))
         rows.append(
-            f'<li><a href="/recordings/view?f={rel_quoted}">{filename}</a> '
-            f'({html.escape(dt_text)}, {size_text}) '
-            f'<a href="/recordings/download?f={rel_quoted}">download</a></li>'
+            "<tr>"
+            f'<td class="name"><a href="/recordings/view?f={rel_quoted}">{filename}</a></td>'
+            f'<td class="date">{html.escape(dt_text)}</td>'
+            f'<td class="size">{size_text}</td>'
+            f'<td class="actions"><a href="/recordings/download?f={rel_quoted}">download</a></td>'
+            "</tr>"
         )
 
     if rows:
         listing = "\n".join(rows)
     else:
-        listing = "<li>No recordings found.</li>"
+        listing = '<tr><td colspan="4" class="empty">No recordings found.</td></tr>'
 
     page = f"""\
-<html>
-<head><title>NestCam Recordings</title></head>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NestCam Recordings</title>
+  <style>
+    :root {{
+      color-scheme: dark;
+      --bg: #0f172a;
+      --bg2: #111827;
+      --panel: rgba(17, 24, 39, 0.88);
+      --border: #334155;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(180deg, var(--bg), var(--bg2));
+      color: var(--text);
+    }}
+    .wrap {{
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }}
+    .topbar {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }}
+    h1 {{
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+    }}
+    .subtitle {{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }}
+    .nav {{
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }}
+    .nav a {{
+      color: var(--text);
+      text-decoration: none;
+      background: rgba(17, 24, 39, 0.88);
+      border: 1px solid var(--border);
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+    }}
+    .nav a:hover {{
+      border-color: var(--accent);
+      color: white;
+    }}
+    .panel {{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+    }}
+    th, td {{
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      vertical-align: top;
+    }}
+    th {{
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(15, 23, 42, 0.55);
+    }}
+    td.name a, td.actions a {{
+      color: #bfdbfe;
+      text-decoration: none;
+    }}
+    td.name a:hover, td.actions a:hover {{
+      text-decoration: underline;
+    }}
+    td.date, td.size {{
+      white-space: nowrap;
+      color: var(--text);
+    }}
+    td.actions {{
+      white-space: nowrap;
+    }}
+    .empty {{
+      color: var(--muted);
+    }}
+    @media (max-width: 760px) {{
+      th:nth-child(2), th:nth-child(3), td.date, td.size {{
+        display: none;
+      }}
+    }}
+  </style>
+</head>
 <body>
-<h2>NestCam Recordings</h2>
-<p><a href="/index.html">live</a> | <a href="/status.txt">status</a></p>
-<ul>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Recordings</h1>
+        <div class="subtitle">Newest clips first. Click a filename to open it in the browser.</div>
+      </div>
+      <nav class="nav">
+        <a href="/index.html">Live</a>
+        <a href="/recordings">Recordings</a>
+        <a href="/status.txt">Status</a>
+      </nav>
+    </div>
+    <section class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Date</th>
+            <th>Size</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
 {listing}
-</ul>
+        </tbody>
+      </table>
+    </section>
+  </div>
 </body>
 </html>
 """
@@ -291,8 +544,8 @@ SATURATION = os.getenv("SATURATION")
 SATURATION = float(SATURATION) if SATURATION not in (None, "") else None
 
 LIVE_SIZE = (
-    int(os.getenv("LIVE_W", os.getenv("LORES_W", "960"))),
-    int(os.getenv("LIVE_H", os.getenv("LORES_H", "540"))),
+    int(os.getenv("LIVE_W", os.getenv("LORES_W", "1280"))),
+    int(os.getenv("LIVE_H", os.getenv("LORES_H", "720"))),
 )
 
 MIN_CLIP_SECONDS = max(0.0, float(os.getenv("MIN_CLIP_SECONDS", "8")))
@@ -939,7 +1192,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                     return raw
 
                 if "/recordings" not in text:
-                    nav = '<p><a href="/recordings">recordings</a></p>'
+                    nav = '<p><a href="/recordings">Recordings</a></p>'
                     if "</body>" in text:
                         text = text.replace("</body>", nav + "\n</body>", 1)
                     else:
