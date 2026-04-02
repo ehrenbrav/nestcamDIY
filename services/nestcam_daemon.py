@@ -30,9 +30,16 @@ from picamera2.encoders import H264Encoder, MJPEGEncoder
 from picamera2.outputs import FileOutput
 
 try:
-    from gpiozero import DigitalInputDevice
+    from gpiozero import DigitalInputDevice, OutputDevice, PWMLED
 except Exception:  # pragma: no cover - depends on target system packages
     DigitalInputDevice = None
+    OutputDevice = None
+    PWMLED = None
+
+try:
+    import RPi.GPIO as RPI_GPIO
+except Exception:  # pragma: no cover - depends on target system packages
+    RPI_GPIO = None
 
 
 # -------------------- Helpers --------------------
@@ -41,6 +48,18 @@ def env_bool(name: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def optional_bool_env(name: str):
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid boolean value for {name}: {raw!r}")
 
 
 def env_int(name: str, default: int | None = None) -> int | None:
@@ -263,7 +282,18 @@ VIDEO_SIZE = (int(os.getenv("VIDEO_W", "1280")), int(os.getenv("VIDEO_H", "720")
 FPS = int(os.getenv("FPS", "20"))
 BITRATE = int(os.getenv("BITRATE", "2000000"))
 
-LORES_SIZE = (int(os.getenv("LORES_W", "320")), int(os.getenv("LORES_H", "240")))
+AE_ENABLE = optional_bool_env("AE_ENABLE")
+EXPOSURE_TIME = os.getenv("EXPOSURE_TIME")
+EXPOSURE_TIME = int(EXPOSURE_TIME) if EXPOSURE_TIME not in (None, "") else None
+ANALOGUE_GAIN = os.getenv("ANALOGUE_GAIN")
+ANALOGUE_GAIN = float(ANALOGUE_GAIN) if ANALOGUE_GAIN not in (None, "") else None
+SATURATION = os.getenv("SATURATION")
+SATURATION = float(SATURATION) if SATURATION not in (None, "") else None
+
+LIVE_SIZE = (
+    int(os.getenv("LIVE_W", os.getenv("LORES_W", "960"))),
+    int(os.getenv("LIVE_H", os.getenv("LORES_H", "540"))),
+)
 
 MIN_CLIP_SECONDS = max(0.0, float(os.getenv("MIN_CLIP_SECONDS", "8")))
 MOTION_COOLDOWN_SECONDS = max(0.0, float(os.getenv("MOTION_COOLDOWN_SECONDS", os.getenv("COOLDOWN_SECONDS", "8"))))
@@ -287,10 +317,15 @@ LAN_ONLY_FAIL_CLOSED = env_bool("LAN_ONLY_FAIL_CLOSED", True)
 LOCAL_NETS_TTL_SECONDS = float(os.getenv("LOCAL_NETS_TTL_SECONDS", "60"))
 WIFI_IFACE_ENV = (os.getenv("WIFI_IFACE") or "").strip()
 
+IR_GPIO = int(os.getenv("IR_GPIO", "18"))
+IR_ACTIVE_HIGH = env_bool("IR_ACTIVE_HIGH", True)
+IR_BRIGHTNESS = max(0.0, min(1.0, float(os.getenv("IR_BRIGHTNESS", "1.0"))))
+IR_PWM_FREQUENCY = float(os.getenv("IR_PWM_FREQUENCY", "500"))
+
 ensure_dir(RECORDINGS_ROOT)
 ensure_dir(STATUS_FILE.parent)
 
-PAGE = build_page(LORES_SIZE)
+PAGE = build_page(LIVE_SIZE)
 
 
 # -------------------- LAN-only cache --------------------
@@ -409,7 +444,7 @@ class StreamingOutput(io.BufferedIOBase):
 
 
 class LiveController:
-    def __init__(self, picam2: Picamera2, output: StreamingOutput):
+    def __init__(self, picam2: Picamera2, output: StreamingOutput, on_active_change=None):
         self.picam2 = picam2
         self.output = output
         self.lock = threading.Lock()
@@ -417,10 +452,13 @@ class LiveController:
         self.last_client_left = 0.0
         self.mjpeg_encoder = MJPEGEncoder()
         self.mjpeg_running = False
+        self.on_active_change = on_active_change
 
     def client_connected(self):
+        active = False
         with self.lock:
             self.clients += 1
+            active = self.clients > 0
             if not self.mjpeg_running:
                 logging.info("Starting MJPEG encoder (lores)")
                 timing_safe_start_encoder(
@@ -430,12 +468,18 @@ class LiveController:
                     name="lores",
                 )
                 self.mjpeg_running = True
+        if self.on_active_change:
+            self.on_active_change(active)
 
     def client_disconnected(self):
+        active = False
         with self.lock:
             self.clients = max(0, self.clients - 1)
+            active = self.clients > 0
             if self.clients == 0:
                 self.last_client_left = time.time()
+        if self.on_active_change:
+            self.on_active_change(active)
 
     def live_active(self) -> bool:
         with self.lock:
@@ -458,6 +502,220 @@ class LiveController:
                             logging.warning("stop_encoder(MJPEG) error: %s", exc)
                         self.mjpeg_running = False
                         self.last_client_left = 0.0
+
+
+class LedDriverBase:
+    backend_name = "unknown"
+
+    def set_brightness(self, value: float) -> None:
+        raise NotImplementedError
+
+    def off(self) -> None:
+        self.set_brightness(0.0)
+
+    def close(self) -> None:
+        raise NotImplementedError
+
+
+class RPiGPIODriver(LedDriverBase):
+    backend_name = "rpi_gpio_pwm"
+
+    def __init__(self, gpio: int, pwm_hz: float, active_high: bool) -> None:
+        if RPI_GPIO is None:
+            raise RuntimeError("RPi.GPIO module not available")
+
+        self.GPIO = RPI_GPIO
+        self.gpio = gpio
+        self.pwm_hz = pwm_hz
+        self.active_high = active_high
+        self.pwm = None
+
+        self.GPIO.setwarnings(False)
+        self.GPIO.setmode(self.GPIO.BCM)
+        self.GPIO.setup(self.gpio, self.GPIO.OUT, initial=self._off_level())
+        self.GPIO.output(self.gpio, self._off_level())
+
+    def _on_level(self):
+        return self.GPIO.HIGH if self.active_high else self.GPIO.LOW
+
+    def _off_level(self):
+        return self.GPIO.LOW if self.active_high else self.GPIO.HIGH
+
+    def _stop_pwm(self) -> None:
+        if self.pwm is not None:
+            try:
+                self.pwm.stop()
+            finally:
+                self.pwm = None
+
+    def _ensure_pwm(self) -> None:
+        if self.pwm is None:
+            self.pwm = self.GPIO.PWM(self.gpio, self.pwm_hz)
+            start_duty = 0.0 if self.active_high else 100.0
+            self.pwm.start(start_duty)
+
+    def _set_digital(self, on: bool) -> None:
+        self._stop_pwm()
+        self.GPIO.output(self.gpio, self._on_level() if on else self._off_level())
+
+    def set_brightness(self, value: float) -> None:
+        value = max(0.0, min(1.0, value))
+        if value <= 0.001:
+            self._set_digital(False)
+            return
+        if value >= 0.999:
+            self._set_digital(True)
+            return
+
+        self._ensure_pwm()
+        duty = value * 100.0 if self.active_high else (100.0 - (value * 100.0))
+        self.pwm.ChangeDutyCycle(duty)
+
+    def close(self) -> None:
+        try:
+            self._set_digital(False)
+        finally:
+            try:
+                self.GPIO.cleanup(self.gpio)
+            except Exception:
+                pass
+
+
+class GpioZeroPWMLEDDriver(LedDriverBase):
+    backend_name = "gpiozero_pwmled"
+
+    def __init__(self, gpio: int, active_high: bool) -> None:
+        if PWMLED is None:
+            raise RuntimeError("gpiozero PWMLED unavailable")
+        self.led = PWMLED(gpio, active_high=active_high, initial_value=0.0)
+
+    def set_brightness(self, value: float) -> None:
+        value = max(0.0, min(1.0, value))
+        if value >= 0.999:
+            self.led.on()
+        elif value <= 0.001:
+            self.led.off()
+        else:
+            self.led.value = value
+
+    def close(self) -> None:
+        self.led.close()
+
+
+class GpioZeroDigitalDriver(LedDriverBase):
+    backend_name = "gpiozero_digital"
+
+    def __init__(self, gpio: int, active_high: bool) -> None:
+        if OutputDevice is None:
+            raise RuntimeError("gpiozero OutputDevice unavailable")
+        self.device = OutputDevice(gpio, active_high=active_high, initial_value=False)
+
+    def set_brightness(self, value: float) -> None:
+        if value > 0.0:
+            self.device.on()
+        else:
+            self.device.off()
+
+    def close(self) -> None:
+        self.device.close()
+
+
+def build_ir_driver():
+    errors = []
+
+    try:
+        driver = RPiGPIODriver(IR_GPIO, IR_PWM_FREQUENCY, IR_ACTIVE_HIGH)
+        logging.info(
+            "IR lights configured on GPIO%d using RPi.GPIO PWM (brightness=%.2f freq=%.1f Hz)",
+            IR_GPIO,
+            IR_BRIGHTNESS,
+            IR_PWM_FREQUENCY,
+        )
+        return driver
+    except Exception as exc:
+        errors.append(f"RPi.GPIO failed: {exc}")
+
+    try:
+        driver = GpioZeroPWMLEDDriver(IR_GPIO, IR_ACTIVE_HIGH)
+        logging.info(
+            "IR lights configured on GPIO%d using gpiozero PWMLED (brightness=%.2f)",
+            IR_GPIO,
+            IR_BRIGHTNESS,
+        )
+        return driver
+    except Exception as exc:
+        errors.append(f"gpiozero PWMLED failed: {exc}")
+
+    try:
+        driver = GpioZeroDigitalDriver(IR_GPIO, IR_ACTIVE_HIGH)
+        logging.info("IR lights configured on GPIO%d using gpiozero digital output only", IR_GPIO)
+        return driver
+    except Exception as exc:
+        errors.append(f"gpiozero digital failed: {exc}")
+
+    logging.warning(
+        "Failed to initialize IR lights on GPIO%d. Details: %s",
+        IR_GPIO,
+        "; ".join(errors) if errors else "no GPIO backend available",
+    )
+    return None
+
+
+class IRLightController:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.live_active = False
+        self.recording_active = False
+        self.driver = build_ir_driver()
+        self.driver_backend = self.driver.backend_name if self.driver is not None else "unavailable"
+
+    def _apply_locked(self):
+        if self.driver is None:
+            return
+
+        want_on = self.live_active or self.recording_active
+        try:
+            self.driver.set_brightness(IR_BRIGHTNESS if want_on else 0.0)
+        except Exception as exc:
+            logging.warning("Failed to update IR lights via %s: %s", self.driver_backend, exc)
+
+    def set_live_active(self, active: bool):
+        with self.lock:
+            self.live_active = bool(active)
+            self._apply_locked()
+
+    def set_recording_active(self, active: bool):
+        with self.lock:
+            self.recording_active = bool(active)
+            self._apply_locked()
+
+    def is_on(self) -> bool:
+        with self.lock:
+            return (
+                self.driver is not None
+                and (self.live_active or self.recording_active)
+                and IR_BRIGHTNESS > 0.0
+            )
+
+    def brightness(self) -> float:
+        return IR_BRIGHTNESS
+
+    def backend(self) -> str:
+        return self.driver_backend
+
+    def close(self):
+        with self.lock:
+            self.live_active = False
+            self.recording_active = False
+            if self.driver is None:
+                return
+            try:
+                self.driver.off()
+                self.driver.close()
+            except Exception as exc:
+                logging.warning("Failed to close IR light device via %s: %s", self.driver_backend, exc)
+            finally:
+                self.driver = None
 
 
 # -------------------- Motion input --------------------
@@ -725,21 +983,35 @@ class NestCamDaemon:
             )
 
         self.stream_output = StreamingOutput()
-        self.live = LiveController(self.picam2, self.stream_output)
+        self.ir = IRLightController()
+        self.live = LiveController(self.picam2, self.stream_output, on_active_change=self.ir.set_live_active)
 
         self.stop_event = threading.Event()
         self.state_lock = threading.Lock()
 
+    def build_camera_controls(self):
+        controls = {"FrameRate": FPS}
+        if AE_ENABLE is not None:
+            controls["AeEnable"] = AE_ENABLE
+        if EXPOSURE_TIME is not None:
+            controls["ExposureTime"] = EXPOSURE_TIME
+        if ANALOGUE_GAIN is not None:
+            controls["AnalogueGain"] = ANALOGUE_GAIN
+        if SATURATION is not None:
+            controls["Saturation"] = SATURATION
+        return controls
+
     def start_camera(self):
         ensure_dir(RECORDINGS_ROOT)
+        controls = self.build_camera_controls()
         config = self.picam2.create_video_configuration(
             main={"size": VIDEO_SIZE, "format": "YUV420"},
-            lores={"size": LORES_SIZE, "format": "YUV420"},
-            controls={"FrameRate": FPS},
+            lores={"size": LIVE_SIZE, "format": "YUV420"},
+            controls=controls,
         )
         self.picam2.configure(config)
         self.picam2.start()
-        logging.info("Camera started (main=%s lores=%s fps=%s)", VIDEO_SIZE, LORES_SIZE, FPS)
+        logging.info("Camera started (main=%s live=%s controls=%s)", VIDEO_SIZE, LIVE_SIZE, controls)
 
     def motion_detected(self) -> bool:
         return self.motion_input.detected()
@@ -764,6 +1036,7 @@ class NestCamDaemon:
         encoder = H264Encoder(bitrate=BITRATE)
 
         logging.info("REC start (%s): %s", reason, filename)
+        self.ir.set_recording_active(True)
         try:
             timing_safe_start_encoder(
                 self.picam2,
@@ -772,6 +1045,7 @@ class NestCamDaemon:
                 name="main",
             )
         except Exception as exc:
+            self.ir.set_recording_active(False)
             logging.exception("Failed to start H264 encoder for %s: %s", filename, exc)
             with self.state_lock:
                 self.h264_encoder = None
@@ -802,6 +1076,7 @@ class NestCamDaemon:
             self.record_reason = None
             self.last_clip_end = time.time()
 
+        self.ir.set_recording_active(False)
         logging.info("REC stop")
 
     def status_text(self) -> bytes:
@@ -827,10 +1102,19 @@ class NestCamDaemon:
             f"record_reason={reason}\n"
             f"live_clients={self.live.client_count()}\n"
             f"recordings_root={RECORDINGS_ROOT}\n"
+            f"live_size={LIVE_SIZE[0]}x{LIVE_SIZE[1]}\n"
+            f"fps={FPS}\n"
+            f"ae_enable={AE_ENABLE}\n"
+            f"exposure_time={EXPOSURE_TIME}\n"
+            f"analogue_gain={ANALOGUE_GAIN}\n"
+            f"saturation={SATURATION}\n"
             f"free_gb={free_bytes / (1024 ** 3):.2f}\n"
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"
             f"auth_enabled={AUTH_ENABLED}\n"
+            f"ir_on={self.ir.is_on()}\n"
+            f"ir_brightness={self.ir.brightness():.2f}\n"
+            f"ir_backend={self.ir.backend()}\n"
             f"motion_gpio_pin={MOTION_GPIO_PIN}\n"
             f"motion_enabled={self.motion_input.enabled()}\n"
             f"motion_ready={self.motion_input.ready()}\n"
@@ -904,6 +1188,10 @@ class NestCamDaemon:
             pass
         try:
             self.picam2.stop()
+        except Exception:
+            pass
+        try:
+            self.ir.close()
         except Exception:
             pass
 
