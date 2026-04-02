@@ -10,6 +10,7 @@ import io
 import ipaddress
 import json
 import logging
+import html
 import os
 import shutil
 import signal
@@ -18,9 +19,11 @@ import subprocess
 import sys
 import threading
 import time
+import mimetypes
 from http import server
 from pathlib import Path
 from threading import Condition
+from urllib.parse import parse_qs, quote, urlparse
 
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder, MJPEGEncoder
@@ -121,7 +124,7 @@ def build_page(lores_size: tuple[int, int]) -> str:
 <head><title>NestCam Live</title></head>
 <body>
 <h2>NestCam Live</h2>
-<p><a href=\"/status.txt\">status</a></p>
+<p><a href=\"/status.txt\">status</a> | <a href=\"/recordings\">recordings</a></p>
 <img src=\"/stream.mjpg\" width=\"{width}\" height=\"{height}\" />
 </body>
 </html>
@@ -137,6 +140,102 @@ def parse_motion_pull(raw: str):
     if value in {"none", "off", "floating", ""}:
         return None
     raise ValueError(f"Unsupported MOTION_PULL value: {raw!r}")
+
+
+def format_size(num_bytes: int) -> str:
+    value = float(num_bytes)
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if value < 1024.0 or unit == "TB":
+            if unit == "B":
+                return f"{int(value)} {unit}"
+            return f"{value:.1f} {unit}"
+        value /= 1024.0
+    return f"{num_bytes} B"
+
+
+def parse_recording_datetime(path: Path):
+    name = path.name
+    try:
+        ts_text = name.split("_", 1)[0]
+        return dt.datetime.strptime(ts_text, "%Y-%m-%dT%H%M%S%z")
+    except Exception:
+        return None
+
+
+def recording_entries(root: Path):
+    ensure_dir(root)
+    entries = []
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            stat = path.stat()
+        except OSError as exc:
+            logging.warning("Could not stat recording %s: %s", path, exc)
+            continue
+        try:
+            rel = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+
+        recorded_at = parse_recording_datetime(path)
+        sort_ts = recorded_at.timestamp() if recorded_at is not None else stat.st_mtime
+
+        entries.append(
+            {
+                "path": path,
+                "rel": rel,
+                "mtime": stat.st_mtime,
+                "size": stat.st_size,
+                "recorded_at": recorded_at,
+                "sort_ts": sort_ts,
+            }
+        )
+    entries.sort(key=lambda item: item["sort_ts"], reverse=True)
+    return entries
+
+
+def safe_recording_path(root: Path, rel_path: str) -> Path:
+    candidate = (root / rel_path).resolve(strict=True)
+    root_resolved = root.resolve(strict=True)
+    candidate.relative_to(root_resolved)
+    if not candidate.is_file():
+        raise FileNotFoundError(candidate)
+    return candidate
+
+
+def build_recordings_page(root: Path) -> bytes:
+    rows = []
+    for entry in recording_entries(root):
+        shown_dt = entry["recorded_at"] or dt.datetime.fromtimestamp(entry["mtime"]).astimezone()
+        dt_text = shown_dt.astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
+        filename = html.escape(Path(entry["rel"]).name)
+        rel_quoted = quote(entry["rel"], safe="/")
+        size_text = html.escape(format_size(entry["size"]))
+        rows.append(
+            f'<li><a href="/recordings/view?f={rel_quoted}">{filename}</a> '
+            f'({html.escape(dt_text)}, {size_text}) '
+            f'<a href="/recordings/download?f={rel_quoted}">download</a></li>'
+        )
+
+    if rows:
+        listing = "\n".join(rows)
+    else:
+        listing = "<li>No recordings found.</li>"
+
+    page = f"""\
+<html>
+<head><title>NestCam Recordings</title></head>
+<body>
+<h2>NestCam Recordings</h2>
+<p><a href="/index.html">live</a> | <a href="/status.txt">status</a></p>
+<ul>
+{listing}
+</ul>
+</body>
+</html>
+"""
+    return page.encode("utf-8")
 
 
 # -------------------- Config (env-overridable) --------------------
@@ -439,6 +538,17 @@ def authorized(headers) -> bool:
     return raw == f"{LIVE_USER}:{LIVE_PASS}"
 
 
+def guess_recording_content_type(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".h264", ".264"}:
+        return "video/h264"
+    if suffix in {".mjpg", ".mjpeg"}:
+        return "video/x-motion-jpeg"
+
+    content_type, _ = mimetypes.guess_type(path.name)
+    return content_type or "application/octet-stream"
+
+
 class StreamingHandler(server.BaseHTTPRequestHandler):
     live_controller: LiveController = None
     streaming_output: StreamingOutput = None
@@ -456,13 +566,17 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        if self.path == "/":
+        parsed = urlparse(self.path)
+        route = parsed.path
+        query = parse_qs(parsed.query)
+
+        if route == "/":
             self.send_response(301)
             self.send_header("Location", "/index.html")
             self.end_headers()
             return
 
-        if self.path == "/index.html":
+        if route == "/index.html":
             content = self._index_page_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -471,7 +585,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
-        if self.path == "/status.txt":
+        if route == "/status.txt":
             content = self.status_provider() if self.status_provider else b"status unavailable\n"
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -480,7 +594,25 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
-        if self.path == "/stream.mjpg":
+        if route == "/recordings":
+            content = build_recordings_page(RECORDINGS_ROOT)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        if route in {"/recordings/view", "/recordings/download"}:
+            rel_path = (query.get("f") or [""])[0]
+            if not rel_path:
+                self.send_error(400, "Missing recording path")
+                return
+            as_attachment = (route == "/recordings/download")
+            self._serve_recording(rel_path, as_attachment=as_attachment)
+            return
+
+        if route == "/stream.mjpg":
             self.send_response(200)
             self.send_header("Age", "0")
             self.send_header("Cache-Control", "no-cache, private")
@@ -512,6 +644,40 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
         self.send_error(404)
         self.end_headers()
+
+    def _serve_recording(self, rel_path: str, *, as_attachment: bool) -> None:
+        try:
+            path = safe_recording_path(RECORDINGS_ROOT, rel_path)
+            stat = path.stat()
+        except FileNotFoundError:
+            self.send_error(404, "Recording not found")
+            return
+        except ValueError:
+            self.send_error(400, "Invalid recording path")
+            return
+        except OSError as exc:
+            logging.warning("Could not access recording %s: %s", rel_path, exc)
+            self.send_error(500, "Could not access recording")
+            return
+
+        content_type = guess_recording_content_type(path)
+
+        disposition = "attachment" if as_attachment else "inline"
+        filename = path.name.replace("\\", "_").replace('"', "_")
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(stat.st_size))
+        self.send_header("Content-Disposition", f'{disposition}; filename="{filename}"')
+        self.end_headers()
+
+        try:
+            with path.open("rb") as f:
+                shutil.copyfileobj(f, self.wfile)
+        except BrokenPipeError:
+            logging.info("Recording client disconnected: %s (%s)", self.client_address, rel_path)
+        except Exception as exc:
+            logging.warning("Failed while serving recording %s: %s", rel_path, exc)
 
     def _index_page_bytes(self) -> bytes:
         if INDEX_HTML.exists():
