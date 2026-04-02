@@ -195,7 +195,7 @@ def install_system_files(repo_root: Path) -> None:
     maybe_install_file(repo_root / "power_stats.py", INSTALL_ROOT / "power_stats.py", 0o755)
 
     install_file(service_root / "nestcam.service", SYSTEMD_DIR / "nestcam.service", 0o644)
-    install_file(service_root / "index.html", INSTALL_ROOT / "index.html", 0o644)
+    install_file(repo_root / "webpage" / "index.html", INSTALL_ROOT / "index.html", 0o644)
     install_file(
         service_root / "nestcam-retention.service",
         SYSTEMD_DIR / "nestcam-retention.service",
@@ -289,7 +289,7 @@ def validate_repo_layout(repo_root: Path) -> None:
         repo_root / "services" / "nestcam.service",
         repo_root / "services" / "nestcam-retention.service",
         repo_root / "services" / "nestcam-retention.timer",
-        repo_root / "services" / "index.html",
+        repo_root / "webpage" / "index.html",
         repo_root / DEFAULT_ENV_SOURCE,
     ]
     missing = [str(p) for p in required if not p.exists()]

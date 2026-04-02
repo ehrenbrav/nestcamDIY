@@ -258,7 +258,7 @@ def main() -> int:
                 remaining_mah = args.battery_mah * (soc / 100.0)
 
             # Coulomb counting update
-            if last_t is not None and args.disable_coulomb_counting:
+            if last_t is not None and not args.disable_coulomb_counting:
                 dt = max(0.0, now - last_t)  # seconds
                 delta_mah = (current_ma * dt) / 3600.0  # mA * hours = mAh
                 if delta_mah >= 0:

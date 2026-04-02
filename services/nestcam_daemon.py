@@ -243,7 +243,7 @@ def build_page(lores_size: tuple[int, int]) -> str:
     <div class="topbar">
       <div>
         <h1>NestCam</h1>
-        <div class="subtitle">Live preview from the birdhouse camera.</div>
+        <div class="subtitle">Live from the NestCamDIY camera.</div>
       </div>
       <nav class="nav">
         <a href="/index.html">Live</a>
@@ -253,7 +253,7 @@ def build_page(lores_size: tuple[int, int]) -> str:
     </div>
     <section class="panel">
       <div class="stream-frame">
-        <img src="/stream.mjpg" alt="NestCam live stream" />
+        <img src="/stream.mjpg" alt="NestCamDIY live stream" />
       </div>
       <div class="meta">
         <span><strong>Preview resolution:</strong> {width} × {height}</span>
@@ -346,7 +346,13 @@ def build_recordings_page(root: Path) -> bytes:
             f'<td class="name"><a href="/recordings/view?f={rel_quoted}">{filename}</a></td>'
             f'<td class="date">{html.escape(dt_text)}</td>'
             f'<td class="size">{size_text}</td>'
-            f'<td class="actions"><a href="/recordings/download?f={rel_quoted}">download</a></td>'
+            f'<td class="actions">'
+            f'<a class="icon-link" href="/recordings/download?f={rel_quoted}" title="Download" aria-label="Download">{DOWNLOAD_ICON}</a>'
+            f'<form class="inline-form" method="post" action="/recordings/delete">'
+            f'<input type="hidden" name="f" value="{html.escape(entry["rel"], quote=True)}" />'
+            f'<button type="submit" class="icon-button delete-button" title="Delete" aria-label="Delete">{DELETE_ICON}</button>'
+            f'</form>'
+            f'</td>'
             "</tr>"
         )
 
@@ -445,11 +451,11 @@ def build_recordings_page(root: Path) -> bytes:
       letter-spacing: 0.05em;
       background: rgba(15, 23, 42, 0.55);
     }}
-    td.name a, td.actions a {{
+    td.name a {{
       color: #bfdbfe;
       text-decoration: none;
     }}
-    td.name a:hover, td.actions a:hover {{
+    td.name a:hover {{
       text-decoration: underline;
     }}
     td.date, td.size {{
@@ -458,6 +464,48 @@ def build_recordings_page(root: Path) -> bytes:
     }}
     td.actions {{
       white-space: nowrap;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }}
+    .icon-link, .icon-button {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      color: #bfdbfe;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(15, 23, 42, 0.45);
+      text-decoration: none;
+    }}
+    .icon-button {{
+      padding: 0;
+      cursor: pointer;
+      font: inherit;
+    }}
+    .icon-link:hover, .icon-button:hover {{
+      border-color: var(--accent);
+      background: rgba(37, 99, 235, 0.14);
+    }}
+    .icon-link svg, .icon-button svg {{
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+      display: block;
+    }}
+    .inline-form {{
+      display: inline;
+      margin: 0;
+      padding: 0;
+    }}
+    .delete-button {{
+      color: #fca5a5;
+    }}
+    .delete-button:hover {{
+      border-color: #ef4444;
+      background: rgba(239, 68, 68, 0.12);
     }}
     .empty {{
       color: var(--muted);
@@ -513,6 +561,22 @@ def guess_recording_content_type(path: Path) -> str:
 
     content_type, _ = mimetypes.guess_type(path.name)
     return content_type or "application/octet-stream"
+
+
+DOWNLOAD_ICON = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+    '<path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.41L11 12.59V4a1 1 0 0 1 1-1Z"/>'
+    '<path d="M5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1Z"/>'
+    '</svg>'
+)
+
+DELETE_ICON = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+    '<path d="M9 3a1 1 0 0 0-.9.55L7.38 5H5a1 1 0 1 0 0 2h14a1 1 0 1 0 0-2h-2.38l-.72-1.45A1 1 0 0 0 15 3H9Z"/>'
+    '<path d="M7 9a1 1 0 0 1 1 1v8a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-8a1 1 0 1 1 2 0v8a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4v-8a1 1 0 0 1 1-1Z" transform="translate(0 -2)"/>'
+    '<path d="M10 10a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1Zm4 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1Z"/>'
+    '</svg>'
+)
 
 
 # -------------------- Config (env-overridable) --------------------
@@ -1058,17 +1122,24 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
     live_controller: LiveController = None
     streaming_output: StreamingOutput = None
     status_provider = None
+    active_recording_path_provider = None
 
-    def do_GET(self):
+    def _check_request_access(self) -> bool:
         if not client_allowed(self.client_address[0]):
             self.send_response(403)
             self.end_headers()
-            return
+            return False
 
         if not authorized(self.headers):
             self.send_response(401)
             self.send_header("WWW-Authenticate", 'Basic realm="NestCam"')
             self.end_headers()
+            return False
+
+        return True
+
+    def do_GET(self):
+        if not self._check_request_access():
             return
 
         parsed = urlparse(self.path)
@@ -1091,6 +1162,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                 return
             as_attachment = (route == "/recordings/download")
             self._serve_recording(rel_path, as_attachment=as_attachment)
+            return
+
+        if route == "/recordings/delete":
+            self.send_error(405, "Use POST for deletion")
             return
 
         if self.path == "/":
@@ -1150,6 +1225,48 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
         self.send_error(404)
         self.end_headers()
 
+    def do_POST(self):
+        if not self._check_request_access():
+            return
+
+        parsed = urlparse(self.path)
+        route = parsed.path
+        if route != "/recordings/delete":
+            self.send_error(404)
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self.send_error(400, "Invalid Content-Length")
+            return
+
+        if content_length < 0:
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if content_length > 8192:
+            self.send_error(413, "Request body too large")
+            return
+
+        try:
+            body = self.rfile.read(content_length)
+        except Exception:
+            self.send_error(400, "Could not read request body")
+            return
+
+        try:
+            form = parse_qs(body.decode("utf-8"), keep_blank_values=True)
+        except UnicodeDecodeError:
+            self.send_error(400, "Invalid request encoding")
+            return
+
+        rel_path = (form.get("f") or [""])[0]
+        if not rel_path:
+            self.send_error(400, "Missing recording path")
+            return
+
+        self._delete_recording(rel_path)
+
     def _serve_recording(self, rel_path: str, *, as_attachment: bool) -> None:
         try:
             path = safe_recording_path(RECORDINGS_ROOT, rel_path)
@@ -1181,6 +1298,71 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             logging.info("Recording client disconnected: %s (%s)", self.client_address, rel_path)
         except Exception as exc:
             logging.warning("Failed while serving recording %s: %s", rel_path, exc)
+
+    def _delete_recording(self, rel_path: str) -> None:
+        try:
+            path = safe_recording_path(RECORDINGS_ROOT, rel_path)
+        except FileNotFoundError:
+            self.send_error(404, "Recording not found")
+            return
+        except ValueError:
+            self.send_error(400, "Invalid recording path")
+            return
+        except OSError as exc:
+            logging.warning("Could not access recording %s for deletion: %s", rel_path, exc)
+            self.send_error(500, "Could not access recording")
+            return
+
+        active_path = None
+        if self.active_recording_path_provider is not None:
+            try:
+                active_path = self.active_recording_path_provider()
+            except Exception as exc:
+                logging.warning("Could not determine active recording path: %s", exc)
+
+        if active_path is not None:
+            try:
+                if path.resolve(strict=True) == active_path.resolve(strict=False):
+                    self.send_error(409, "Cannot delete recording that is still in progress")
+                    return
+            except OSError:
+                pass
+
+        try:
+            path.unlink()
+            self._cleanup_empty_recording_dirs(path.parent)
+            logging.info("Deleted recording: %s", path)
+        except FileNotFoundError:
+            self.send_error(404, "Recording not found")
+            return
+        except OSError as exc:
+            logging.warning("Failed to delete recording %s: %s", rel_path, exc)
+            self.send_error(500, "Could not delete recording")
+            return
+
+        self.send_response(303)
+        self.send_header("Location", "/recordings")
+        self.end_headers()
+
+    def _cleanup_empty_recording_dirs(self, start_dir: Path) -> None:
+        try:
+            root = RECORDINGS_ROOT.resolve(strict=True)
+        except OSError:
+            return
+
+        current = start_dir
+        while True:
+            try:
+                resolved = current.resolve(strict=True)
+            except OSError:
+                break
+            if resolved == root:
+                break
+            try:
+                current.rmdir()
+            except OSError:
+                break
+            current = current.parent
 
     def _index_page_bytes(self) -> bytes:
         if INDEX_HTML.exists():
@@ -1222,6 +1404,7 @@ class NestCamDaemon:
         self.last_clip_end = 0.0
         self.record_reason = None
         self.h264_encoder = None
+        self.current_record_path = None
         self.last_record_start_failure = 0.0
 
         self.motion_input = MotionInput(
@@ -1309,6 +1492,7 @@ class NestCamDaemon:
             self.h264_encoder = encoder
             self.recording = True
             self.record_reason = reason
+            self.current_record_path = filename
             self.record_start = time.time()
             self.last_motion = self.record_start
             self.last_record_start_failure = 0.0
@@ -1327,10 +1511,15 @@ class NestCamDaemon:
             self.h264_encoder = None
             self.recording = False
             self.record_reason = None
+            self.current_record_path = None
             self.last_clip_end = time.time()
 
         self.ir.set_recording_active(False)
         logging.info("REC stop")
+
+    def active_recording_path(self):
+        with self.state_lock:
+            return self.current_record_path
 
     def status_text(self) -> bytes:
         ensure_dir(RECORDINGS_ROOT)
@@ -1416,6 +1605,7 @@ class NestCamDaemon:
         StreamingHandler.live_controller = self.live
         StreamingHandler.streaming_output = self.stream_output
         StreamingHandler.status_provider = self.status_text
+        StreamingHandler.active_recording_path_provider = self.active_recording_path
 
         httpd = ThreadedHTTPServer((LIVE_BIND, LIVE_PORT), StreamingHandler)
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
