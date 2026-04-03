@@ -88,9 +88,9 @@ class GpioZeroMotionReader(MotionReaderBase):
     def __init__(self, gpio: int) -> None:
         from gpiozero import DigitalInputDevice
 
-        # AM312 provides its own actively-driven digital output, so we leave
-        # the Pi input floating rather than forcing an internal pull-up/down.
-        self.sensor = DigitalInputDevice(gpio, pull_up=None, active_state=True)
+        # Default to an internal pull-down so the Pi input does not float if the
+        # PIR output is disconnected, weakly driven, or the module is faulty.
+        self.sensor = DigitalInputDevice(gpio, pull_up=False, active_state=True)
 
     def read(self) -> int:
         return int(self.sensor.value)
@@ -106,7 +106,7 @@ class RPiGPIOMotionReader(MotionReaderBase):
         self.GPIO = GPIO
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(gpio, GPIO.IN)
+        GPIO.setup(gpio, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         self.gpio = gpio
 
     def read(self) -> int:

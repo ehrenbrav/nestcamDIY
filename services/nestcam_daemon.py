@@ -619,7 +619,7 @@ START_RECORD_RETRY_SECONDS = max(0.0, float(os.getenv("START_RECORD_RETRY_SECOND
 
 MOTION_GPIO_PIN = env_int("MOTION_GPIO_PIN")
 MOTION_ACTIVE_HIGH = env_bool("MOTION_ACTIVE_HIGH", True)
-MOTION_PULL = parse_motion_pull(os.getenv("MOTION_PULL", "none"))
+MOTION_PULL = parse_motion_pull(os.getenv("MOTION_PULL", "down"))
 MOTION_STARTUP_GRACE_SECONDS = max(0.0, float(os.getenv("MOTION_STARTUP_GRACE_SECONDS", "20")))
 
 LIVE_BIND = os.getenv("LIVE_BIND", "0.0.0.0")
@@ -1558,6 +1558,8 @@ class NestCamDaemon:
             f"ir_brightness={self.ir.brightness():.2f}\n"
             f"ir_backend={self.ir.backend()}\n"
             f"motion_gpio_pin={MOTION_GPIO_PIN}\n"
+            f"motion_active_high={MOTION_ACTIVE_HIGH}\n"
+            f"motion_pull={MOTION_PULL}\n"
             f"motion_enabled={self.motion_input.enabled()}\n"
             f"motion_ready={self.motion_input.ready()}\n"
             f"motion_detected={motion_now}\n"
