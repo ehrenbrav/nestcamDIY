@@ -1056,11 +1056,12 @@ class MotionInput:
             )
 
         try:
-            self.device = DigitalInputDevice(
-                pin=pin,
-                pull_up=pull,
-                active_state=active_high,
-            )
+            kwargs = {"pin": pin, "pull_up": pull}
+            if pull is None:
+                kwargs["active_state"] = active_high
+
+            self.device = DigitalInputDevice(**kwargs)
+            
         except Exception as exc:
             raise RuntimeError(f"Failed to initialize motion input on GPIO{pin}: {exc}") from exc
 

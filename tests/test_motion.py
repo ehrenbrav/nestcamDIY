@@ -90,7 +90,7 @@ class GpioZeroMotionReader(MotionReaderBase):
 
         # Default to an internal pull-down so the Pi input does not float if the
         # PIR output is disconnected, weakly driven, or the module is faulty.
-        self.sensor = DigitalInputDevice(gpio, pull_up=False, active_state=True)
+        self.sensor = DigitalInputDevice(gpio, pull_up=False)
 
     def read(self) -> int:
         return int(self.sensor.value)
