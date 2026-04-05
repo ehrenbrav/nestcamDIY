@@ -17,12 +17,14 @@ If using solar or battery power:
 If using solar:
 1 JST connector
 
-A way of writing SD cards, such as the Acer SD Card Reader USB-C.
-A soldering iron, flux and solder
-A Dremel or small saw for cutting a notch in the project box.
+A way of writing SD cards, such as the Acer SD Card Reader USB-C
+A soldering iron and solder
+A Dremel or small saw for cutting a notch in the project box
 Red, yellow, green, blue, and black 26AWS stranded wire
-Heat shrink wrapping. 
+A multimeter for debugging
+Wire-strippers
+(Recommended) Dupont crimpers and a set of Dupont connectors
+Heat shrink wrapping 
 Gorilla Tape
-Silicone Sealant
 Adheasive Velcro 
-Electrical Tape
+

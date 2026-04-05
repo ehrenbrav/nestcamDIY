@@ -1,12 +1,12 @@
-The NestCamDIY is a Raspberry Pi based video camera that can be installed in a birdhouse, squirrel-house or any other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar. It works with both ambient light and in complete darkness and streams a video feed to an address on your network, meaning you can view it using any browser. This allows live viewing from you phone, a computer, or even a dedicated video monitor. The interior of the box is illuminated by infrared lights, which are invisible to both birds and humans but make the image show up clearly on video (though with distorted colors).
+The NestCamDIY is a Raspberry Pi based video camera that can be installed in a birdhouse, squirrel-house or any other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar panels. It works with both ambient light and in complete darkness and streams a video feed to an address on your network, meaning you can view it using any browser. This allows live viewing from you phone, a computer, or even a dedicated video monitor. The interior of the box is illuminated by infrared lights, which are invisible to both birds and humans but make the image show up clearly on video (though with distorted colors). It incorporates a motion sensor that starts recording video anytime motion is detected, which can be downloaded and viewed via the webpage.
 
 The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger and connect this to the device. Alternatively, you can use either a battery or solar setup. Both involve using an uninterruptible power supply to give the device power while you are swapping out the battery or when it is dark out. You can have leave a weatherproof battery somehwere convenient like at the base of the tree, and run a USB charging cord from it to the device. For solar, you'll need to experiment to find a suitable size solar panel and location. In sunny locations, this is easy, but definitely more challenging in cloudy weather or shaded sites. You'll need to use a large enough solar array coupled with a good size battery to get you through the night and less than ideal solar conditions.
 
-These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and (if you build your own birdbox) woodworking.
+These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and (if you build your own birdbox) woodworking. This intentionally keeps soldering to a minimum, at the expense of some elegance of the design. If you are willing to solder a bit more, you can create your own custom board to control the LEDs and motion detector. The downside with this approach is that it introduces numerous additional failure points and can be difficult to debug unless you are proficient with a multimeter. Hardware is hard! But the simplified setup below should work just fine for most deployments.
 
 Important Caveats
 This is intended for use on a private network and should not be exposed to the internet without additional security hardening.
-If you are using solar power, you will need to select the right size solar panels and positioning to provide enough juice to reliably power the system. That could take some tinkering and definitely depends on the time of year and your particular situation. There is an entire section on this below.
+Solar is definitely an awesome way to power the netcam! But if you are using solar power, you will need to select the right size solar panels and positioning to provide enough juice to reliably power the system. That could take some tinkering and definitely depends on the time of year and your particular situation. There is an entire section on this below.
 
 Raspberry Pi Configuration
 1.1 Download the Raspberry Pi Imager from here: https://www.raspberrypi.com/software/. You'll need to insert your new SD card into your computer using an SD card reader.
@@ -25,67 +25,77 @@ Raspberry Pi Configuration
 - Disable Raspberry Pi Connect.
 - Double-check the selections and write the new image. This will take a minute or two. Once complete, remove the SD card.
 
-1.3. Put the adheasive heat sink that comes with the Raspberry Pi onto the black processor chip (not the silver colored metal box - that's the wifi chip). Next, solder header pins onto the Raspberry Pi. You'll need two rows of 20 header pins. When you solder these, use clamps to hold them in place so they are vertical and not slanted. The plastic pieces of the pins should be on the top of the board. As always, inspect afterwards for solder bridges or bad solder joints. Be careful to ensure the solder joints are 100% good, as bad soldering can lead to major debugging headaches later with hard-to-diagnose failures!
+1.3. Put the adheasive heat sink that comes with the Raspberry Pi onto the black processor chip (not the silver colored metal box - that's the wifi chip). Next, solder header pins onto the Raspberry Pi. You'll need two rows of 20 header pins. When you solder these, use clamps to hold them in place so they are vertical and not slanted. The plastic pieces of the pins should be on the top of the board. As always, inspect afterwards for solder bridges or bad solder joints. Be careful to ensure the solder joints are 100% good, as bad soldering can lead to major debugging headaches later with hard-to-diagnose failures! Alternatively, if you don't want to do this, you can buy a pre-soldered version of the Pi.
 
-1.3A. (Solar and Battery Only) Attach the UPS (Uninterruptable Power Supply) hat to the Raspberry Pi using the standoff screws. Be sure that the pogo pins on the hat make good, clean contact with the bottom of the header pins on the Pi. Make sure the power switch is in the off position and attach the battery to the hat. Be extremely careful that the polarity is correct here! Triple-check that the red wire on the battery leads to the + side of the battery connecter on the hat and the black wire leads to the - side. For the super-paranoid, check the polarity with a multimeter. If you are using a larger battery than what comes with the UPS hat, use rubber bands to securely strap the Pi/Hat to the battery itself. 
+1.3A. (Solar and Battery Only) Attach the UPS (Uninterruptable Power Supply) hat to the Raspberry Pi using the standoff screws. Be sure that the pogo pins on the hat make good, clean contact with the bottom of the header pins on the Pi. Make sure the power switch is in the off position and attach the battery to the hat. Be extremely careful that the polarity is correct here! Triple-check that the red wire on the battery leads to the + side of the battery connecter on the hat and the black wire leads to the - side. For the super-paranoid, check the polarity with a multimeter. If you are using a larger battery than what comes with the UPS hat (recommended for solar), use rubber bands to securely strap the Pi/Hat to the battery itself. 
 
 1.4. Insert the newly-written SD card into the Pi. Plug in the Pi using the PWR USB connection to a wall charger (if building a wired NestCamDIY) or to the USB-C power connection on the UPS hat (if using solar/battery). If you are using a UPS hat, switch the unit on.
 
 1.5. You should see a green LED light on the Pi light up and flicker a bit. Wait until it is steady green and try to connect to the Pi using your computer - it could take a few minutes for the Pi to come up the first time, so be patient:
 - In a linux terminal, run `ssh <NAME-OF-YOUR-PI>`. This is the name you selected when you wrote the SD card (not your wifi SSID or your username).
+-- Educational Background: What is a terminal?
 -- Educational Background: What is SSH? [ ]
-- If this fails, you'll need to troubleshoot why the Pi is not connecting to your wifi. Use ChatGPT (or similar) troubleshoot this common issue, as there are a number of potential causes.
+- If this fails, you'll need to troubleshoot why the Pi is not connecting to your wifi. Use ChatGPT (or similar) troubleshoot this common issue, as there are a number of potential causes. 
 - Once you have access to the Pi, wait for it to finish any initial update tasks. Run `top` and watch until the CPU usage comes down to a percent or two, then hit `q` to exit.
 - Install git by running `sudo apt install git`.
 -- Educational Background: What is git? [ ]
 - Next, use git to clone the NestCamDIY repository: `git clone https://github.com/ehrenbrav/NestCamDIY`. This will put a copy of all the NestCamDIY software on your Pi.
 - Go into the project directory: `cd NestCamDIY`. Remember you can hit Tab for autocomplete to make typig faster.
 - Install the software, so all the pieces are put in the correct places on your Pi: `sudo python setup.py`. It might take a bit to install all the required dependencies since we're starting with a very bare-bones operating system. Once that completes successfully, shutdown the Pi for now until we need it again: `sudo shutdown -h now`. If you are using a UPS hat, switch the on-off switch to off once the LED on the Pi shows that it is off. If you are using a wired setup, simply pull out the power supply once the LED turns off.
-- Shut down the system - we'll next turn to building the hardware: `sudo shutdown -h now`.
 -- Educational Background: How the NestCamDIY software works. [ ]
 
 Build the Hardware
 Now it's time to build the hardware we'll need. We'll start with the controller board.
-2.1. Use the schematic [LINK] as a reference. We'll be building this board to control the infrared LEDs and the motion detector. The Pi both powers these and controls them using the GPIO pins. First, solder the header pins into the perf board. These are the pins we'll use to connect to the Pi. Inspect your soldering.
+2.1. Use the schematic [LINK] as a reference. The Pi both powers and controls the LEDs and motion detector using the GPIO pins. The LEDs are switched on and off using a MOSFET module and the motion detector is a pre-built AM312 PIR sensor. 
 -- Educational Background: What are GPIO pins? [ ]
+-- Educational Background: What is a MOSFET?
 
-2.2. Solder the wire connectors for the LEDs and the motion sensor. These will allow us to easily connect and disconnect the infrared LEDs and motion sensor wires to the board. As always, inspect your soldering to ensure your connections are 100% good.
-
-2.3. Solder the components onto the board: the resistors, capacitor, and MOSFET transistor. Put each of these components into the board, bend the leads so they stay in place, solder each of them to the board, and then use flush cutters to clip the excess leads so everything is neat and tidy. Inspect your soldering.
--- Educational Background: Hoes does this board work? [ ]
-
-2.4. Connect the components together by soldering wires to the back of the board. Be very careful here to get the correct wires soldered to the correct components.
-
-2.5. Create the test and production LED pigtails. You will need two infrared LED pigtails and one colored LED pigtail for testing (since obviously you cannot see the infrared directly and thus would have no easy way of checking that everything is working). The procedure for all three is the same. Solder a red wire to the long lead of the LEDs and a black wire to the shorter leads. LEDs have a polarity, so it is essential that you have the current flowing in the correct direction. For all of this, follow this procedure:
+2.2. Create the test and production LED pigtails. You will need two infrared LED pigtails and one colored LED pigtail for testing (since obviously you cannot see the infrared directly and thus would have no easy way of checking that everything is working). The procedure for all three is the same. Solder a red wire to the long lead of the LEDs and a black wire to the shorter leads. LEDs have a polarity, so it is essential that you have the current flowing in the correct direction. For all of this, follow this procedure:
 - Cut long-ish pieces of red and black wire. You want to ensure you have enough length to connect the LEDs at the top of the bird house all the way back to the enclosure, so leave plenty to spare. You can always cut away the excess as necessary.
-- Strip the insulation off about two centimeters of the wire using wire strippers.
-- Twist the lead and the wire together so they stay connected.
-- Apply a small amount of solder to the spliced area so you have a very secure electrical connection.
-- Cut a piece of wire wrap tubing long enough to cover your splice. What you want is to avoid a short - where your red and black wires touch together. So it's important that you ensure that the conductor portions of the wires and leads never touch each other.
+- Strip the insulation off about one centimeter of the wires using wire strippers.
+- Twist a 680-ohm resistor to the positive (or negative) lead of the LED.
+-- Educational Background: Why do we use a resistor here and why 680-ohms?
+- Twist the stripped end of the wire around the other end of the resistor, and twist the other wire around the other lead of the LED.
+- Apply a small amount of solder to the three spliced areas so you have a very secure electrical connection.
+- Cut a piece of heat-shrink tubing long enough to cover your splice. What you want is to avoid a short - where your red and black wires touch together. So it's important that you ensure that the conductor portions of the wires and leads never touch each other.
 - Use a blow-dryer to gently heat the heat-shrink wrap until it contracts tightly around the splice.
-- Once you have both the black and red wires connected to the leads, thread these through a larger piece of heat-shrink wrapping. Use a blow-dryer to heat the heat-shrink wrapping so it contracts around the wires.
-- When know the length you need, cut the wires to this length and strip the insulation off about two centimeters off the red and black wires. You can do the cutting later once you know the actual dimensions of your final product.
+- When know the length you need, cut the wires to this length and strip the insulation off about one centimeter off the red and black wires. You can do the cutting later once you know the actual dimensions of your final product.
 
-2.6. Next make a similar pigtail for the motion sensor. You will need three wires for the motion sensor: yellow, black, and green. Here, this sensor uses 3.3V rather than the 5V that we use with the LEDs. So we use yellow to represent the positive power supply here to distinguish it from the 5V power supply. Green represents the signal - whether motion is detected or not. Black, as is typical, is ground. The same principle applies here - strip two centimeters off the wires, twist them around the leads (red to +, black to GND, and yellow to ****), apply solder to each of these splices to get a good connection, put a small piece of heat-shrink wrap around each splice to ensure they don't touch each other, and thread all three wires through heat-shrink wrap. As before, use hot air to get the heat-shrink wrap to compress tightly around the wires.
+2.3. Next make a similar pigtail for the motion sensor. You will need three wires for the motion sensor: yellow, black, and green. Here, this sensor uses 3.3V rather than the 5V that we use with the LEDs. So we use yellow to represent the positive power supply here to distinguish it from the 5V power supply. Green represents the signal - whether motion is detected or not. Black, as is typical, is ground. 
 -- Educational Background: What do the positive power supply and ground mean?
+- Here, the best way to do this is to make your own 3-wire cable to connect directly to the motion sensor. You need to use the Dupont cripers and connectors for this - no soldering required, and you'll have a secure connector that you can attach and reattach in the exact length you need. Tutorial on using these connectors is here: [  ]. Alternatively, you can simply buy pre-made jumper wires - you'll need both female-female and male-female jumper wires. This is super easy - just push them on to the header pins of the motion detector and connect enough together to get the length that you need.
 
-2.7. Connect the colored LED wires (with two centimeters stripped off the end) to the LED1 connection of the board. Double-check the polarity again, since LEDs need to have the positive lead connected to the positive side of the circuit and the negative lead attached to the negative side.
+2.4. Next, connect the colored testing LED pigtail to the MOSFET board. You'll need to loosen all four of the wire terminal screws. On the load side (the side of the board where the arrow is pointing), connect the red wire to the + terminal and the black wire to the - terminal. 
 
-2.8. Connect the control board to the Pi. Using a red, yellow, blue, green, and black female-female wire, attach the control board to the Pi. Red represents the 5V power supply, yellow is the 3.3V power supply, blue is the control signal for the LEDs, green is the signal from the motion sensor, and black is ground. Connect these to the Pi's header pins as follows, using the pinout diagram [LINK] for reference:
-Pin 1   (3.3V)   -> Yellow
-Pin 2   (5V)     -> Red
-Pin 6   (GND)    -> Black
-Pin 12  (GPIO18) -> Blue
-Pin 16  (GPIO23) -> Green
+2.5. Now we'll connect everything to the Pi. Get a good image of the Raspberry Pi Zero 2W pinout for reference - this shows you which header pin is which. Be very careful here - it is easy to connect things to the wrong pins!
+- Connect the yellow 3.3V power supply for the motion detector to Pin 1.
+- Connect the black ground for the motion detector to Pin 6 (but any of the Ground pins will work as well).
+- Leave the green sensor wire unconnected for now.
+- Connect a red jumper wire to the +5V Pin 2 of the Pi.
+- Connect the other end of this wire to the MOSFET board's power supply - the + wire terminal opposite to the one you connected the colored LED to. Make sure you screw each of these terminals securely onto the wires.
+- Connect a black jumper wire to Ground Pin 20 of the Pi.
+- Connect the other end to the MOSFET board's power supply ground - the "-" wire terminal opposite where the LED connects to.
+- Connected a blue jumper wire to Pin 12 of the Pi, which is "GPIO18". This will be the control to turn the LEDs off and on (and dim them).
+- Connect the other end of this to the + control pin of the MOSFET board. This is one of the two header pins that stick out the side of the board.
+- Connect a black ground jumper wire to Pin 14 of the Pi.
+- Connect the other end of this to the - contol pin of the MOSFET board.
+- At this point, you have made all the necessary connections to the Pi: 
+Pin 1   (3.3V)   -> Yellow -> Motion detector + pin.
+Pin 2   (5V)     -> Red    -> MOSFET power supply + screw terminal (the power supply side)
+Pin 6   (GND)    -> Black  -> Motion detector - pin
+Pin 12  (GPIO18) -> Blue   -> MOSFET + pin
+Pin 14  (GND)    -> Black  -> MOSFET - pin
+Pin 16  (GPIO23) -> Green  -> Motion detector signal pin (unconnected for testing)
+Pin 20  (GND)    -> Black  -> MOSFET power supply - screw terminal (the power supply side)
+The red and black LED wires should be attached to the + and - screw terminals (respectively) on the load side of the MOSFET board.
 
-2.8A. For solar setups, you also need to create a solar power cable:
+2.5A. For solar setups, you also need to create a solar power cable:
 - Cut a 1 foot length of black and red wire.
 - Strip about 1 centimeter off each end.
-- The UPS hat comes with a separate plastic connector for the solar hookup. Plug this into the jack on the UPS hat and carefully note which side is + and which is -: these are indicated on the board itself. As usual, you need to be very careful about the polarity here.
-
+- The UPS hat comes with a separate plastic connector for the solar hookup. Plug this into the jack on the UPS hat and carefully note which side is + and which is -: these are indicated on the board itself. As usual, you need to be very careful about the polarity here!
 - Using a precision screwdriver, loosen each of the two screws in this connector. Insert the red wire into the + side and the black wire into the - side and retighten the screws. The wires should be securely clamped to the connector.
 - Thread the two wires through heat-shrink wrap.
-- Splice the other ends of the wires to one of the JST connectors: braid the wires together, tin them with a bit of solder, and apply heat shrink wrap to protect the connection.
+- Splice the other ends of the wires to a pre-made JST connectors: braid the wires together, tin them with a bit of solder, and apply heat shrink wrap to protect the connection. Alternatively, you could use the Dupont connectors.
 
 Bench Testing
 Now it is time to run some initial tests to ensure the connections are good and the various pieces are working properly.

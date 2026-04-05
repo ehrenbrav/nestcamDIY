@@ -277,6 +277,29 @@ def parse_motion_pull(raw: str):
     raise ValueError(f"Unsupported MOTION_PULL value: {raw!r}")
 
 
+def motion_pull_label(pull) -> str:
+    if pull is True:
+        return "up"
+    if pull is False:
+        return "down"
+    return "none"
+
+
+def validate_motion_input_config(*, pin: int | None, active_high: bool, pull) -> None:
+    if pin is None:
+        return
+    if pull is None:
+        return
+    expected_active_high = (pull is False)
+    if active_high != expected_active_high:
+        raise ValueError(
+            "Unsupported motion polarity/pull combination: "
+            f"MOTION_PULL={motion_pull_label(pull)!r} requires "
+            f"MOTION_ACTIVE_HIGH={1 if expected_active_high else 0} when using gpiozero DigitalInputDevice. "
+            "Use MOTION_PULL=none for a floating input if you need the opposite polarity."
+        )
+
+
 def format_size(num_bytes: int) -> str:
     value = float(num_bytes)
     for unit in ["B", "KB", "MB", "GB", "TB"]:
@@ -613,11 +636,18 @@ MIN_CLIP_SECONDS = max(0.0, float(os.getenv("MIN_CLIP_SECONDS", "8")))
 MOTION_COOLDOWN_SECONDS = max(0.0, float(os.getenv("MOTION_COOLDOWN_SECONDS", os.getenv("COOLDOWN_SECONDS", "8"))))
 SAMPLE_HZ = max(0.1, float(os.getenv("SAMPLE_HZ", "8")))
 START_RECORD_RETRY_SECONDS = max(0.0, float(os.getenv("START_RECORD_RETRY_SECONDS", "2")))
+MOTION_TRIGGER_CONSECUTIVE_SAMPLES = max(1, int(os.getenv("MOTION_TRIGGER_CONSECUTIVE_SAMPLES", "4")))
+MOTION_CLEAR_CONSECUTIVE_SAMPLES = max(1, int(os.getenv("MOTION_CLEAR_CONSECUTIVE_SAMPLES", "2")))
 
 MOTION_GPIO_PIN = env_int("MOTION_GPIO_PIN")
 MOTION_ACTIVE_HIGH = env_bool("MOTION_ACTIVE_HIGH", True)
 MOTION_PULL = parse_motion_pull(os.getenv("MOTION_PULL", "down"))
 MOTION_STARTUP_GRACE_SECONDS = max(0.0, float(os.getenv("MOTION_STARTUP_GRACE_SECONDS", "20")))
+validate_motion_input_config(
+    pin=MOTION_GPIO_PIN,
+    active_high=MOTION_ACTIVE_HIGH,
+    pull=MOTION_PULL,
+)
 
 LIVE_BIND = os.getenv("LIVE_BIND", "0.0.0.0")
 LIVE_PORT = int(os.getenv("LIVE_PORT", "8000"))
@@ -1062,9 +1092,7 @@ class MotionInput:
             kwargs = {"pin": pin, "pull_up": pull}
             if pull is None:
                 kwargs["active_state"] = active_high
-
             self.device = DigitalInputDevice(**kwargs)
-            
         except Exception as exc:
             raise RuntimeError(f"Failed to initialize motion input on GPIO{pin}: {exc}") from exc
 
@@ -1072,7 +1100,7 @@ class MotionInput:
             "Motion input ready on GPIO%s (active_high=%s pull=%s startup_grace=%.1fs)",
             pin,
             active_high,
-            pull,
+            motion_pull_label(pull),
             self.startup_grace_seconds,
         )
 
@@ -1082,7 +1110,7 @@ class MotionInput:
     def ready(self) -> bool:
         return (time.time() - self.start_time) >= self.startup_grace_seconds
 
-    def detected(self) -> bool:
+    def raw_detected(self) -> bool:
         if self.device is None:
             return False
         if not self.ready():
@@ -1093,6 +1121,9 @@ class MotionInput:
             logging.warning("Failed to read motion input: %s", exc)
             return False
 
+    def detected(self) -> bool:
+        return self.raw_detected()
+
     def close(self):
         if self.device is not None:
             try:
@@ -1100,6 +1131,36 @@ class MotionInput:
             except Exception:
                 pass
             self.device = None
+
+
+class DebouncedMotion:
+    def __init__(self, trigger_samples: int, clear_samples: int):
+        self.trigger_samples = max(1, int(trigger_samples))
+        self.clear_samples = max(1, int(clear_samples))
+        self.active_samples = 0
+        self.inactive_samples = 0
+        self.confirmed = False
+        self.last_raw = False
+
+    def update(self, raw_motion: bool) -> bool:
+        self.last_raw = bool(raw_motion)
+        if self.last_raw:
+            self.active_samples += 1
+            self.inactive_samples = 0
+            if not self.confirmed and self.active_samples >= self.trigger_samples:
+                self.confirmed = True
+        else:
+            self.inactive_samples += 1
+            self.active_samples = 0
+            if self.confirmed and self.inactive_samples >= self.clear_samples:
+                self.confirmed = False
+        return self.confirmed
+
+    def reset(self) -> None:
+        self.active_samples = 0
+        self.inactive_samples = 0
+        self.confirmed = False
+        self.last_raw = False
 
 
 
@@ -1423,6 +1484,10 @@ class NestCamDaemon:
             pull=MOTION_PULL,
             startup_grace_seconds=MOTION_STARTUP_GRACE_SECONDS,
         )
+        self.debounced_motion = DebouncedMotion(
+            MOTION_TRIGGER_CONSECUTIVE_SAMPLES,
+            MOTION_CLEAR_CONSECUTIVE_SAMPLES,
+        )
         if RECORDING_ENABLED and not self.motion_input.enabled():
             logging.error(
                 "Recording is enabled but motion input is unavailable; motion-triggered recording will not occur"
@@ -1534,8 +1599,11 @@ class NestCamDaemon:
                 self.last_camera_idle = time.time()
         self.maybe_stop_camera_if_idle()
 
+    def motion_raw_detected(self) -> bool:
+        return self.motion_input.raw_detected()
+
     def motion_detected(self) -> bool:
-        return self.motion_input.detected()
+        return self.debounced_motion.confirmed
 
     def start_recording(self, reason: str) -> bool:
         with self.state_lock:
@@ -1617,7 +1685,8 @@ class NestCamDaemon:
     def status_text(self) -> bytes:
         ensure_dir(RECORDINGS_ROOT)
         free_bytes = free_bytes_for_path(RECORDINGS_ROOT)
-        motion_now = self.motion_detected()
+        raw_motion_now = self.debounced_motion.last_raw
+        motion_now = self.debounced_motion.confirmed
         with self.state_lock:
             recording = self.recording
             reason = self.record_reason
@@ -1655,11 +1724,17 @@ class NestCamDaemon:
             f"ir_backend={self.ir.backend()}\n"
             f"motion_gpio_pin={MOTION_GPIO_PIN}\n"
             f"motion_active_high={MOTION_ACTIVE_HIGH}\n"
-            f"motion_pull={MOTION_PULL}\n"
+            f"motion_pull={motion_pull_label(MOTION_PULL)}\n"
             f"motion_enabled={self.motion_input.enabled()}\n"
             f"motion_ready={self.motion_input.ready()}\n"
+            f"motion_raw_detected={raw_motion_now}\n"
+            f"motion_trigger_consecutive_samples={MOTION_TRIGGER_CONSECUTIVE_SAMPLES}\n"
+            f"motion_clear_consecutive_samples={MOTION_CLEAR_CONSECUTIVE_SAMPLES}\n"
+            f"motion_active_samples={self.debounced_motion.active_samples}\n"
+            f"motion_inactive_samples={self.debounced_motion.inactive_samples}\n"
             f"motion_detected={motion_now}\n"
             f"motion_cooldown_seconds={MOTION_COOLDOWN_SECONDS:.1f}\n"
+            f"sample_hz={SAMPLE_HZ:.2f}\n"
             f"start_record_retry_seconds={START_RECORD_RETRY_SECONDS:.1f}\n"
             f"seconds_since_motion={seconds_since_motion}\n"
             f"seconds_since_start_failure={seconds_since_start_failure}\n"
@@ -1676,7 +1751,8 @@ class NestCamDaemon:
 
         while not self.stop_event.is_set():
             now = time.time()
-            motion = self.motion_detected()
+            raw_motion = self.motion_raw_detected()
+            motion = self.debounced_motion.update(raw_motion)
             if motion:
                 with self.state_lock:
                     self.last_motion = now
@@ -1699,6 +1775,7 @@ class NestCamDaemon:
 
             self.maybe_stop_camera_if_idle()
             time.sleep(sleep_dt)
+
 
     def start_http_server(self):
         StreamingHandler.live_controller = self.live
