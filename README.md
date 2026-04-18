@@ -1,5 +1,9 @@
 # NestCamDIY
 
+<p align="center">
+  <img src="images/logo.png" alt="NestCamDIY logo" width="360">
+</p>
+
 NestCamDIY is a Raspberry Pi-based video camera that can be installed in a birdhouse, squirrel house, or other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar power. It works in both ambient light and complete darkness and streams a video feed to an address on your network, so you can view it in any browser. This allows live viewing from your phone, a computer, or even a dedicated video monitor.
 
 The interior of the box is illuminated by infrared lights, which are invisible to both birds and humans but still allow the image to show up clearly on video, although with distorted colors. It also incorporates a motion sensor that starts recording video whenever motion is detected. Recordings can then be downloaded and viewed via the web page.
@@ -31,7 +35,7 @@ Download the Raspberry Pi Imager here:
 You will need to insert your new SD card into your computer using an SD card reader.
 
 <details>
-<summary>Educational background</summary>
+<summary><strong><span style="color:#0969da;">Educational Background: What is a Raspberry Pi, and why are we using one?</span></strong></summary>
 
 A Raspberry Pi is a tiny, inexpensive Linux computer. We use it here because it can control hardware through its GPIO pins, connect to Wi-Fi, run the camera and web server software, and do all of this with low power consumption in a very small package.
 
@@ -54,7 +58,7 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 - Once complete, remove the SD card.
 
 <details>
-<summary>Educational background</summary>
+<summary><strong><span style="color:#0969da;">Educational Background: What is a public key, and why might you use one?</span></strong></summary>
 
 A public key is half of a cryptographic key pair used for logging in without typing a password. You place the public half on the Pi and keep the private half on your computer. This is usually more secure than password login and is also more convenient once set up.
 
@@ -106,7 +110,7 @@ ssh <NAME-OF-YOUR-PI>
 This is the name you selected when you wrote the SD card, not your Wi-Fi network name or your username.
 
 <details>
-<summary>Educational background</summary>
+<summary><strong><span style="color:#0969da;">Educational Background: What are a terminal and SSH?</span></strong></summary>
 
 A terminal is a text-based way of controlling a computer by typing commands. SSH, short for Secure Shell, lets you open a terminal session on another computer over the network. In this project, SSH is how you configure and manage the Pi without needing a monitor or keyboard connected to it.
 
@@ -153,7 +157,7 @@ Once you have access to the Pi:
 8. If you are using a UPS HAT, switch the on/off switch to **off** once the Pi LED shows the Pi is off. If you are using a wired setup, simply unplug the power supply once the LED turns off.
 
 <details>
-<summary>Educational background</summary>
+<summary><strong><span style="color:#0969da;">Educational Background: How does the NestCamDIY software work?</span></strong></summary>
 
 The software installs a background service on the Pi that manages the camera, motion-triggered recording, infrared light control, and a small local web interface. That web interface lets you view the live stream, check status, and download recordings from another device on your network.
 
@@ -170,7 +174,7 @@ Use the schematic at `[LINK]` as a reference.
 The Pi both powers and controls the LEDs and motion detector using the GPIO pins. The LEDs are switched on and off using a MOSFET module, and the motion detector is a pre-built AM312 PIR sensor.
 
 <details>
-<summary>Educational background</summary>
+<summary><strong><span style="color:#0969da;">Educational Background: What are GPIO pins, and what is a MOSFET?</span></strong></summary>
 
 GPIO pins are the Raspberry Pi's general-purpose input and output pins. They let the Pi read signals from devices such as the motion sensor and control devices such as the LEDs. A MOSFET is an electronic switch. Here, the Pi uses a GPIO pin to control the MOSFET, and the MOSFET switches the higher-current LED power on and off safely.
 
@@ -192,10 +196,10 @@ For all three pigtails:
 3. Twist a 680-ohm resistor to the positive or negative lead of the LED.
 
    <details>
-   <summary>Educational background</summary>
-   
-   Why do we use a resistor here, and why 680 ohms?
-   
+   <summary><strong><span style="color:#0969da;">Educational Background: Why do we use a resistor here, and why 680 ohms?</span></strong></summary>
+
+   The resistor limits current so the LED is not overdriven and damaged. A value around 680 ohms keeps the current low enough for a simple, safe indicator-style setup while still giving useful light output. Exact brightness is not critical here, so it is a practical conservative choice.
+
    </details>
 
 4. Twist the stripped end of one wire around the other end of the resistor, and twist the other wire around the remaining LED lead.
@@ -218,7 +222,7 @@ You will need three wires:
 This sensor uses `3.3V` rather than the `5V` used with the LEDs, so yellow is used here to distinguish the lower-voltage supply.
 
 <details>
-<summary>Educational background</summary>
+<summary><strong><span style="color:#0969da;">Educational Background: What do positive supply and ground mean?</span></strong></summary>
 
 The positive supply is the wire that provides electrical voltage to a component. Ground is the return path that completes the circuit. Most small electronics need both connections to work: power flows from the positive supply, through the device, and back through ground.
 
@@ -361,7 +365,7 @@ Wave your hand in front of the motion sensor. The LED should light up. If you st
 If the motion test fails, check both the pin wiring and the control-board wiring.
 
 <details>
-<summary>Educational background</summary>
+<summary><strong><span style="color:#0969da;">Educational Background: What do commands like <code>./</code>, <code>cd</code>, <code>sudo</code>, and <code>Ctrl-C</code> mean?</span></strong></summary>
 
 Commands that start with `./` run a program in the current folder. `Ctrl-C` stops a running program. `cd` changes folders. `sudo` runs a command with administrator privileges. `shutdown -h now` tells the Pi to stop running safely before power is removed.
 
