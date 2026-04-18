@@ -72,6 +72,12 @@ You will need to insert a new micro-SD card into your computer using an SD card 
 
 </details>
 
+<p align="center">
+  <img src="images/raspberry-pi-zero.webp" alt="Raspberry Pi Zero 2 W" width="700">
+</p>
+
+<p align="center"><em>The Raspberry Pi Zero 2 W used as the core computer in this project.</em></p>
+
 ### 1.2 Install Raspberry Pi OS
 
 Install Raspberry Pi OS on your SD card following the instructions provided by the imager.
@@ -342,6 +348,12 @@ Connect the colored test LED pigtail to the MOSFET board.
 ### 2.5 Connect Everything to the Pi
 
 Get a good Raspberry Pi Zero 2 W pinout image for reference. Be very careful here, since it is easy to connect things to the wrong pins.
+
+<p align="center">
+  <img src="images/raspberry-pi-pinout.jpg" alt="Raspberry Pi Zero pinout diagram" width="900">
+</p>
+
+<p align="center"><em>Pinout reference for the Raspberry Pi Zero. Double-check pin numbers before making any connections.</em></p>
 
 Make the following connections:
 
