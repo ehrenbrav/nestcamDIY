@@ -3,15 +3,15 @@
 </p>
 
 <p align="left">
-  A low-power wildlife camera for birdhouses and other small animal dwellings.
+  An open-source, low-power wildlife camera for birdhouses and other small animal dwellings.
 </p>
 
 <p align="center">
-  <img src="images/birdhouse-image.png" alt="Live preview from inside the birdhouse camera" width="88%">
+  <img src="images/birdhouse-image.png" alt="Streaming video from inside the birdhouse" width="88%">
 </p>
 
 <p align="center">
-  <sub>Live preview from inside the birdhouse.</sub>
+  <sub>Streaming video from inside the birdhouse.</sub>
 </p>
 
 <p align="center">
@@ -19,16 +19,16 @@
 </p>
 
 <p align="center">
-  <sub>A completed NestCamDIY installation mounted outdoors.</sub>
+  <sub>Can be powered by solar panels, batteries, or a USB.</sub>
 </p>
+
+## Introduction
 
 NestCamDIY is a Raspberry Pi-based video camera that can be installed in a birdhouse, squirrel house, or other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar power. It works in both ambient light and complete darkness and streams a video feed to an address on your network, so you can view it in any browser. This allows live viewing from your phone, a computer, or even a dedicated video monitor.
 
 The interior of the box is illuminated by infrared lights, which are invisible to both birds and humans but still allow the image to show up clearly on video, although with distorted colors. It also incorporates a motion sensor that starts recording video whenever motion is detected. Recordings can then be downloaded and viewed via the web page.
 
 The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger, and connect this to the device. Alternatively, you can use either a battery or a solar setup. Both involve using an uninterruptible power supply to power the device while you are swapping out the battery or when it is dark out.
-
-You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions.
 
 These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and, if you build your own birdbox, woodworking. This approach intentionally keeps soldering to a minimum, at the expense of some elegance in the design.
 
@@ -42,22 +42,33 @@ If you are willing to solder a bit more, you can create your own custom board to
 > [!NOTE]
 > Solar is an excellent way to power the NestCam, but you will need to select the right size solar panels and position them well enough to reliably power the system. That may take some tinkering and depends heavily on the time of year and your particular installation.
 
+## Power Considerations
+
+You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions.
+
 ## 1. Raspberry Pi Configuration
 
-### 1.1 Download Raspberry Pi Imager
+### 1.1 Download The Raspberry Pi Imager
 
 Download the Raspberry Pi Imager here:
 
 - <https://www.raspberrypi.com/software/>
 
-You will need to insert your new SD card into your computer using an SD card reader.
+You will need to insert a new micro-SD card into your computer using an SD card reader (some computers already have an SD-card reader. If not, buy one - see the Bill Of Materials for an example).
 
 <details>
-<summary><strong><em>Note: Educational Background — click to expand: What is a Raspberry Pi, and why are we using one?</em></strong></summary>
+<summary><strong><em>Educational Background: What is a Raspberry Pi, and why are we using one?</em></strong></summary>
 
-> A Raspberry Pi is a very small single-board computer that can run Linux, connect to a network, store files on a microSD card, and control hardware attached to its pins. Even though it is tiny and inexpensive, it is still a real computer, so it can run the camera software, host a small web interface, and manage recordings.
+> A Raspberry Pi is a very small single-board computer: essentially a full Linux computer on one compact circuit board. It can boot from a microSD card, join your Wi-Fi network, run programs and services, and talk directly to hardware such as cameras, LEDs, and sensors through its onboard connectors and GPIO pins.
 >
-> We are using one here because it gives a good balance of size, power use, flexibility, and cost. It can sit inside a small outdoor enclosure, talk to the camera and motion sensor directly, and be administered over Wi-Fi without needing a monitor or keyboard permanently attached.
+> That combination makes it a good fit for a project like this. The Pi Zero 2 W is small enough to hide in a compact enclosure, inexpensive enough for a hobby project, and powerful enough to handle the camera, motion-triggered recording, and simple web interface at the same time.
+>
+> Another reason to use a Raspberry Pi is the ecosystem around it. There is extensive documentation, a large community, official camera support, and many examples for troubleshooting. That matters a lot on a project like this, because you are not just building hardware — you are also assembling Linux, networking, imaging, and electronics into one system.
+>
+> If you want more background, start here:
+>
+> - [Raspberry Pi Documentation](https://www.raspberrypi.com/documentation/)
+> - [Raspberry Pi on Wikipedia](https://en.wikipedia.org/wiki/Raspberry_Pi)
 
 </details>
 
@@ -78,11 +89,19 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 - Once complete, remove the SD card.
 
 <details>
-<summary><strong><em>Note: Educational Background — click to expand: What is a public key, and why might you use one?</em></strong></summary>
+<summary><strong><em>Educational Background: What is a public key, and why might you use one?</em></strong></summary>
 
-> A public key is one half of a key pair used for secure login. You copy the public half onto the Raspberry Pi and keep the private half on your own computer. When you connect, the Pi checks that your computer has the matching private key, so you can log in without sending a password across the network.
+> A public key is one half of a matched key pair used for public-key cryptography. You place the **public** half on the Raspberry Pi and keep the **private** half on your own computer. When you connect over SSH, the Pi can verify that your computer holds the matching private key without you sending that private key across the network.
 >
-> This is generally both safer and more convenient than password login. It makes brute-force guessing much harder, and once it is set up properly, logging in is usually faster and less frustrating than typing a password each time.
+> In practice, this usually feels simpler once it is set up. Instead of typing a password every time, your computer proves its identity automatically. It is also generally safer than password-only login, because an attacker cannot simply guess the private key the way they might try to guess a weak password.
+>
+> The important thing is that the private key must stay private. If someone gets a copy of it, they may be able to log in as you. That is why people often protect their private key with a passphrase and keep backups carefully. For a small home project this may sound formal, but it is a good habit and well worth learning.
+>
+> If you want more background, start here:
+>
+> - [Public-key cryptography on Wikipedia](https://en.wikipedia.org/wiki/Public-key_cryptography)
+> - [Raspberry Pi documentation: remote access with SSH](https://www.raspberrypi.com/documentation/remote-access/)
+> - [ssh-keygen manual page](https://man7.org/linux/man-pages/man1/ssh-keygen.1.html)
 
 </details>
 
@@ -132,11 +151,20 @@ ssh <NAME-OF-YOUR-PI>
 This is the name you selected when you wrote the SD card, not your Wi-Fi network name or your username.
 
 <details>
-<summary><strong><em>Note: Educational Background — click to expand: What are a terminal and SSH?</em></strong></summary>
+<summary><strong><em>Educational Background: What are a terminal and SSH?</em></strong></summary>
 
-> A terminal is a text-based interface where you control a computer by typing commands instead of clicking on windows and icons. This can look intimidating at first, but for setup and troubleshooting it is often faster, clearer, and easier to document than using a graphical desktop.
+> A terminal is a text-based way to control a computer by typing commands. Instead of clicking menus and icons, you tell the system exactly what to do with short instructions such as `cd`, `ls`, or `sudo shutdown -h now`. This can look unfamiliar at first, but it is often the clearest way to set up and troubleshoot a Linux device.
 >
-> SSH stands for Secure Shell. It lets you open a terminal session on another computer over the network in an encrypted way. In this project, SSH is how you log into the Pi from your regular computer so you can install software, edit settings, and run tests without having to connect a screen, mouse, and keyboard to the Pi itself.
+> SSH stands for **Secure Shell**. It lets you open a terminal session on another computer over the network in an encrypted way. In this project, that means you can sit at your regular laptop or desktop and control the Pi remotely without connecting a separate monitor, keyboard, or mouse to it.
+>
+> This is especially useful because the NestCam is meant to behave more like a small appliance than a desktop computer. Once it is installed, it may be in a tree, on a wall, or inside an enclosure. SSH is what lets you update the software, edit configuration files, run tests, and inspect logs without taking the whole thing apart.
+>
+> If you want more background, start here:
+>
+> - [Raspberry Pi documentation: remote access with SSH](https://www.raspberrypi.com/documentation/remote-access/)
+> - [Command-line interface on Wikipedia](https://en.wikipedia.org/wiki/Command-line_interface)
+> - [Terminal emulator on Wikipedia](https://en.wikipedia.org/wiki/Terminal_emulator)
+> - [OpenSSH on Wikipedia](https://en.wikipedia.org/wiki/OpenSSH)
 
 </details>
 
@@ -181,11 +209,19 @@ Once you have access to the Pi:
 8. If you are using a UPS HAT, switch the on/off switch to **off** once the Pi LED shows the Pi is off. If you are using a wired setup, simply unplug the power supply once the LED turns off.
 
 <details>
-<summary><strong><em>Note: Educational Background — click to expand: How does the NestCamDIY software work?</em></strong></summary>
+<summary><strong><em>Educational Background: How does the NestCamDIY software work?</em></strong></summary>
 
-> The software installs a background service on the Raspberry Pi. That service controls the camera, reads the motion sensor, turns the infrared lights on when needed, saves recordings, and serves a simple web page that you can open from another device on your network.
+> The NestCamDIY software is set up to run as a background Linux service on the Raspberry Pi. When the Pi boots, the service starts automatically and manages the parts of the system that matter day to day: the camera, the motion sensor, the infrared lights, the local recordings, and the small web interface you use to view status or watch the stream.
 >
-> In practical terms, the setup script places files in the right system locations, installs any required packages, and configures the service so it starts automatically. After that, the Pi behaves more like an appliance: it boots up, starts the NestCam software on its own, and keeps running until you deliberately change the configuration or stop the service for maintenance.
+> The setup script is there to turn the project from a loose collection of files into something that behaves like an installed appliance. It places files in the right system locations, installs required packages, creates or updates service files, and makes sure the software can start automatically in the background instead of only when you launch it by hand.
+>
+> At a higher level, you can think of the software as three layers. One layer talks to the hardware, especially the camera and GPIO-connected devices. Another layer handles logic such as when to stream, when to record, and how to react to motion events. The final layer exposes a simple browser-based interface so you can interact with the system from another device on your network.
+>
+> If you want more background, start here:
+>
+> - [systemd.service documentation](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
+> - [systemd.unit documentation](https://www.freedesktop.org/software/systemd/man/systemd.unit.html)
+> - [Raspberry Pi camera software documentation](https://www.raspberrypi.com/documentation/computers/camera_software.html)
 
 </details>
 
@@ -200,11 +236,19 @@ Use the schematic at `[LINK]` as a reference.
 The Pi both powers and controls the LEDs and motion detector using the GPIO pins. The LEDs are switched on and off using a MOSFET module, and the motion detector is a pre-built AM312 PIR sensor.
 
 <details>
-<summary><strong><em>Note: Educational Background — click to expand: What are GPIO pins, and what is a MOSFET?</em></strong></summary>
+<summary><strong><em>Educational Background: What are GPIO pins, and what is a MOSFET?</em></strong></summary>
 
-> GPIO stands for General-Purpose Input/Output. These are pins on the Raspberry Pi that can either read signals from external devices or send signals out to control them. In this build, one GPIO pin reads the motion sensor, and another GPIO pin tells the LED control circuit when to turn the infrared lights on or off.
+> GPIO stands for **General-Purpose Input/Output**. These are software-controlled pins on the Raspberry Pi that can either read a signal from another device or send a signal out to control something. In this project, one GPIO pin reads the motion sensor, while another pin is used to control the infrared light circuit.
 >
-> A MOSFET is an electronic switch. The Pi's GPIO pins can only provide a small amount of current, which is not enough to power the LEDs directly. Instead, the GPIO pin controls the MOSFET, and the MOSFET switches the higher-current LED power safely. That protects the Pi and lets a tiny control signal operate a larger load.
+> GPIO pins are useful because they let the Pi interact with the physical world directly. A normal laptop usually cannot do that without extra hardware. A Pi, by contrast, can notice that a sensor changed state, turn something on or off, or send timed pulses for dimming and control.
+>
+> A MOSFET is a kind of electronic switch. The Pi's GPIO pins can only supply a small amount of current, which is not enough to power the LEDs safely by themselves. Instead, the GPIO pin sends a tiny control signal to the MOSFET, and the MOSFET switches the larger LED current on and off. This protects the Pi and lets a low-power control signal operate a higher-power load.
+>
+> If you want more background, start here:
+>
+> - [General-purpose input/output on Wikipedia](https://en.wikipedia.org/wiki/General-purpose_input/output)
+> - [Raspberry Pi Documentation](https://www.raspberrypi.com/documentation/)
+> - [MOSFET on Wikipedia](https://en.wikipedia.org/wiki/MOSFET)
 
 </details>
 
@@ -224,11 +268,20 @@ For all three pigtails:
 3. Twist a 680-ohm resistor to the positive or negative lead of the LED.
 
    <details>
-   <summary><strong><em>Note: Educational Background — click to expand: Why do we use a resistor here, and why 680 ohms?</em></strong></summary>
+   <summary><strong><em>Educational Background: Why do we use a resistor here, and why 680 ohms?</em></strong></summary>
 
-> A resistor limits the current flowing through the LED. Without one, too much current could pass through the LED, making it run too hot, shortening its life, or burning it out entirely. The resistor is there to make the circuit safe and predictable.
+> A resistor limits how much current flows through the LED. LEDs are not like ordinary pieces of wire: once they begin conducting, the current can rise very quickly if nothing in the circuit limits it. Without a resistor, you can easily overdrive the LED, shorten its life, or burn it out almost immediately.
 >
-> A value around 680 ohms is a conservative, practical choice for a simple indicator-style LED setup like this. It keeps the current low enough to avoid stressing the parts while still producing enough light to confirm that the circuit is working. The exact value is not especially critical here, but using a resistor in roughly this range is good practice.
+> The reason you pick a resistor value at all is basic circuit math. The supply voltage is higher than the LED's forward voltage, so the extra voltage has to be dropped somewhere. The resistor provides that drop and sets the current to a safe level according to Ohm's law. That is why almost every simple LED circuit includes one.
+>
+> A value around 680 ohms is a conservative, beginner-friendly choice for a simple test LED pigtail like this. It keeps current low, reduces the chance of damaging parts, and is still bright enough for testing. It is not the only value that would work, but it is a safe and practical choice when the goal is reliability rather than squeezing out maximum brightness.
+>
+> If you want more background, start here:
+>
+> - [Resistor on Wikipedia](https://en.wikipedia.org/wiki/Resistor)
+> - [Ohm's law on Wikipedia](https://en.wikipedia.org/wiki/Ohm%27s_law)
+> - [SparkFun: Light-Emitting Diodes (LEDs)](https://learn.sparkfun.com/tutorials/light-emitting-diodes-leds/all)
+> - [Adafruit: Revisiting Resistors](https://learn.adafruit.com/all-about-leds/revisiting-resistors)
 
    </details>
 
@@ -252,11 +305,20 @@ You will need three wires:
 This sensor uses `3.3V` rather than the `5V` used with the LEDs, so yellow is used here to distinguish the lower-voltage supply.
 
 <details>
-<summary><strong><em>Note: Educational Background — click to expand: What do positive supply and ground mean?</em></strong></summary>
+<summary><strong><em>Educational Background: What do positive supply and ground mean?</em></strong></summary>
 
-> The positive supply is the wire that provides voltage to a component. Ground is the return path that completes the electrical circuit. Most small electronic devices need both: power leaves the supply, passes through the device, and returns through ground.
+> The positive supply is the connection that provides electrical energy to a component. Ground is the reference point and return path that lets current flow back and complete the circuit. In a simple direct-current circuit, both are necessary: power goes out from the supply, through the device, and back through ground.
 >
-> In practice, you can think of the positive supply as the wire bringing energy in and ground as the wire that lets that energy flow back out. Getting these connections right matters. If power and ground are swapped, the part may not work, and in some cases it can be damaged.
+> In practical wiring, this is why polarity matters. Some parts, such as LEDs, sensors, and many electronic boards, expect the positive and ground connections to be attached the right way around. If they are reversed, the part may fail to work, give nonsense readings, or in some cases be damaged.
+>
+> The word “ground” can be a little confusing because in electronics it does not always mean literal earth ground. Often it just means the common reference point shared by the parts of the circuit. For this project, the useful habit is simple: pay close attention to which wire is positive, which wire is ground, and make those connections consistently every time.
+>
+> If you want more background, start here:
+>
+> - [What Is Electricity? — SparkFun Learn](https://learn.sparkfun.com/tutorials/what-is-electricity/all)
+> - [Electrical polarity on Wikipedia](https://en.wikipedia.org/wiki/Electrical_polarity)
+> - [Ground (electricity) on Wikipedia](https://en.wikipedia.org/wiki/Ground_%28electricity%29)
+> - [Polarity — SparkFun Learn](https://learn.sparkfun.com/tutorials/polarity/all)
 
 </details>
 
@@ -397,11 +459,20 @@ Wave your hand in front of the motion sensor. The LED should light up. If you st
 If the motion test fails, check both the pin wiring and the control-board wiring.
 
 <details>
-<summary><strong><em>Note: Educational Background — click to expand: What do commands like <code>./</code>, <code>cd</code>, <code>sudo</code>, and <code>Ctrl-C</code> mean?</em></strong></summary>
+<summary><strong><em>Educational Background: What do commands like <code>./</code>, <code>cd</code>, <code>sudo</code>, and <code>Ctrl-C</code> mean?</em></strong></summary>
 
-> Commands that start with <code>./</code> run a program located in the current folder. <code>cd</code> changes which folder you are currently in. <code>sudo</code> runs a command with administrator privileges, which is sometimes necessary when installing software or changing system files. <code>Ctrl-C</code> stops a running command in the terminal.
+> These are small pieces of everyday Linux command-line vocabulary. `cd` means "change directory" - it changes your current folder, so `cd test` moves you into the `test` directory. `./something` means “run the program named `something` that is located in the current folder.” That leading `./` matters because Linux does not normally search the current folder automatically when you type a command.
 >
-> These are basic building blocks of working in Linux. Once you understand a few of them, instructions become much easier to follow. For example, <code>cd test</code> moves into the test folder, <code>./test_led.py</code> runs the LED test script from that folder, and <code>sudo shutdown -h now</code> tells the Pi to shut down cleanly before you remove power.
+> `sudo` means “run this command with administrator privileges.” That is sometimes necessary when you install software, edit protected system files, or start and stop system services. It is powerful, so it is worth slowing down and making sure you understand a command before running it with `sudo`.
+>
+> `Ctrl-C` is a keyboard shortcut used to stop a running command in the terminal. Under the hood, it usually sends an interrupt signal to the foreground program. That is why it is useful for test scripts: you can let them run while you observe the hardware, then press `Ctrl-C` when you are done instead of closing the terminal window abruptly.
+>
+> If you want more background, start here:
+>
+> - [Bash Reference Manual](https://www.gnu.org/software/bash/manual/bash.html)
+> - [Bash builtins documentation](https://www.gnu.org/s/bash/manual/html_node/Bash-Builtins.html)
+> - [GNU Coreutils manual](https://www.gnu.org/software/coreutils/manual/coreutils.html)
+> - [signal(7) Linux manual page](https://man7.org/linux/man-pages/man7/signal.7.html)
 
 </details>
 
