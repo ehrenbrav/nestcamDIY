@@ -1,16 +1,16 @@
 # NestCamDIY
 
-NestCamDIY is a Raspberry Pi-based video camera that can be installed in a birdhouse, squirrel house, or other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar panels. It works in both ambient light and complete darkness and streams a video feed to an address on your network, so you can view it in any browser. This allows live viewing from your phone, a computer, or even a dedicated video monitor.
+NestCamDIY is a Raspberry Pi-based video camera that can be installed in a birdhouse, squirrel house, or other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar power. It works in both ambient light and complete darkness and streams a video feed to an address on your network, so you can view it in any browser. This allows live viewing from your phone, a computer, or even a dedicated video monitor.
 
-The interior of the box is illuminated by infrared lights, which are invisible to both birds and humans but still allow the image to show up clearly on video, though with distorted colors. It also incorporates a motion sensor that starts recording video whenever motion is detected. Recordings can then be downloaded and viewed via the web page.
+The interior of the box is illuminated by infrared lights, which are invisible to both birds and humans but still allow the image to show up clearly on video, although with distorted colors. It also incorporates a motion sensor that starts recording video whenever motion is detected. Recordings can then be downloaded and viewed via the web page.
 
 The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger, and connect this to the device. Alternatively, you can use either a battery or a solar setup. Both involve using an uninterruptible power supply to power the device while you are swapping out the battery or when it is dark out.
 
 You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions.
 
-These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and, if you build your own birdbox, woodworking. This intentionally keeps soldering to a minimum, at the expense of some elegance in the design.
+These instructions are intended to allow you to build the NestCamDIY using inexpensive materials available on Amazon. You will need some basic skills in soldering, software, and, if you build your own birdbox, woodworking. This approach intentionally keeps soldering to a minimum, at the expense of some elegance in the design.
 
-If you are willing to solder a bit more, you can create your own custom board to control the LEDs and motion detector. The downside with this approach is that it introduces additional failure points and can be difficult to debug unless you are proficient with a multimeter. The simplified setup below should work fine for most deployments.
+If you are willing to solder a bit more, you can create your own custom board to control the LEDs and motion detector. The downside of this approach is that it introduces additional failure points and can be difficult to debug unless you are proficient with a multimeter. The simplified setup below should work fine for most deployments.
 
 ## Important Caveats
 
@@ -30,9 +30,12 @@ Download the Raspberry Pi Imager here:
 
 You will need to insert your new SD card into your computer using an SD card reader.
 
-> **Educational Background**
->
-> What is a Raspberry Pi, and why are we using one?
+<details>
+<summary>Educational background</summary>
+
+A Raspberry Pi is a tiny, inexpensive Linux computer. We use it here because it can control hardware through its GPIO pins, connect to Wi-Fi, run the camera and web server software, and do all of this with low power consumption in a very small package.
+
+</details>
 
 ### 1.2 Install Raspberry Pi OS
 
@@ -45,14 +48,17 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 - Select your time zone and keyboard layout.
 - Enter a username and password that you would like to use for the Pi.
 - Enter the Wi-Fi network name and password that you would like the Pi to connect to. You can add additional networks later.
-- Enable SSH. You can use either password or public-key authentication. Public-key authentication is more secure, but you will need to take an additional step. It is worth learning how to do this if you do not know already, but if you are in a hurry, using a strong password is fine.
+- Enable SSH. You can use either password or public-key authentication. Public-key authentication is more secure, but you will need to take an additional step. It is worth learning how to do this if you do not already know how, but if you are in a hurry, using a strong password is fine.
 - Disable Raspberry Pi Connect.
 - Double-check the selections and write the new image. This will take a minute or two.
 - Once complete, remove the SD card.
 
-> **Educational Background**
->
-> What is a public key, and why should I use one?
+<details>
+<summary>Educational background</summary>
+
+A public key is half of a cryptographic key pair used for logging in without typing a password. You place the public half on the Pi and keep the private half on your computer. This is usually more secure than password login and is also more convenient once set up.
+
+</details>
 
 ### 1.3 Install the Heat Sink and Header Pins
 
@@ -84,12 +90,12 @@ Attach the UPS (Uninterruptible Power Supply) HAT to the Raspberry Pi using the 
 Insert the newly written SD card into the Pi.
 
 - If building a wired NestCamDIY, plug the Pi into a wall charger using the **PWR USB** connection.
-- If using solar or battery, plug into the **USB-C power connection** on the UPS HAT.
+- If using solar or battery, plug the power cable into the **USB-C power connection** on the UPS HAT.
 - If you are using a UPS HAT, switch the unit on.
 
 ### 1.5 Connect to the Pi and Install the Software
 
-You should see a green LED light on the Pi light up and flicker a bit. Wait until it is steady green, then try to connect to the Pi using your computer. It could take a few minutes for the Pi to come up the first time.
+You should see a green LED light on the Pi light up and flicker a bit. Wait until it is steady green, then try to connect to the Pi using your computer. It could take a few minutes for the Pi to boot up the first time.
 
 In a Linux terminal, run:
 
@@ -97,12 +103,14 @@ In a Linux terminal, run:
 ssh <NAME-OF-YOUR-PI>
 ```
 
-This is the name you selected when you wrote the SD card, not your Wi-Fi SSID or your username.
+This is the name you selected when you wrote the SD card, not your Wi-Fi network name or your username.
 
-> **Educational Background**
->
-> - What is a terminal?
-> - What is SSH?
+<details>
+<summary>Educational background</summary>
+
+A terminal is a text-based way of controlling a computer by typing commands. SSH, short for Secure Shell, lets you open a terminal session on another computer over the network. In this project, SSH is how you configure and manage the Pi without needing a monitor or keyboard connected to it.
+
+</details>
 
 If that fails, you will need to troubleshoot why the Pi is not connecting to Wi-Fi.
 
@@ -144,9 +152,12 @@ Once you have access to the Pi:
 
 8. If you are using a UPS HAT, switch the on/off switch to **off** once the Pi LED shows the Pi is off. If you are using a wired setup, simply unplug the power supply once the LED turns off.
 
-> **Educational Background**
->
-> How the NestCamDIY software works.
+<details>
+<summary>Educational background</summary>
+
+The software installs a background service on the Pi that manages the camera, motion-triggered recording, infrared light control, and a small local web interface. That web interface lets you view the live stream, check status, and download recordings from another device on your network.
+
+</details>
 
 ## 2. Build the Hardware
 
@@ -154,14 +165,16 @@ Now it is time to build the hardware. We will start with the controller board.
 
 ### 2.1 Use the Schematic as a Reference
 
-Use the schematic `[LINK]` as a reference.
+Use the schematic at `[LINK]` as a reference.
 
 The Pi both powers and controls the LEDs and motion detector using the GPIO pins. The LEDs are switched on and off using a MOSFET module, and the motion detector is a pre-built AM312 PIR sensor.
 
-> **Educational Background**
->
-> - What are GPIO pins?
-> - What is a MOSFET?
+<details>
+<summary>Educational background</summary>
+
+GPIO pins are the Raspberry Pi's general-purpose input and output pins. They let the Pi read signals from devices such as the motion sensor and control devices such as the LEDs. A MOSFET is an electronic switch. Here, the Pi uses a GPIO pin to control the MOSFET, and the MOSFET switches the higher-current LED power on and off safely.
+
+</details>
 
 ### 2.2 Create the LED Pigtails
 
@@ -178,9 +191,12 @@ For all three pigtails:
 2. Strip about 1 centimeter of insulation from the wires using wire strippers.
 3. Twist a 680-ohm resistor to the positive or negative lead of the LED.
 
-   > **Educational Background**
-   >
-   > Why do we use a resistor here, and why 680 ohms?
+   <details>
+   <summary>Educational background</summary>
+   
+   Why do we use a resistor here, and why 680 ohms?
+   
+   </details>
 
 4. Twist the stripped end of one wire around the other end of the resistor, and twist the other wire around the remaining LED lead.
 5. Apply a small amount of solder to the three spliced areas so you have a secure electrical connection.
@@ -201,17 +217,20 @@ You will need three wires:
 
 This sensor uses `3.3V` rather than the `5V` used with the LEDs, so yellow is used here to distinguish the lower-voltage supply.
 
-> **Educational Background**
->
-> What do positive power supply and ground mean?
+<details>
+<summary>Educational background</summary>
+
+The positive supply is the wire that provides electrical voltage to a component. Ground is the return path that completes the circuit. Most small electronics need both connections to work: power flows from the positive supply, through the device, and back through ground.
+
+</details>
 
 The best approach is to make your own 3-wire cable to connect directly to the motion sensor.
 
 - Use Dupont crimpers and connectors so no soldering is required.
-- This gives you a secure connector that can be attached and reattached at the exact length you need.
+- This gives you a secure connector that can be attached and reattached at exactly the length you need.
 - Tutorial on using these connectors: `[LINK]`
 
-Alternatively, you can buy premade jumper wires. You will need both female-female and male-female jumper wires.
+Alternatively, you can buy pre-made jumper wires. You will need both female-female and male-female jumper wires.
 
 ### 2.4 Connect the Colored Test LED to the MOSFET Board
 
@@ -265,7 +284,7 @@ For solar setups, create a solar power cable.
 5. Insert the red wire into the `+` side and the black wire into the `-` side, then retighten the screws.
 6. Make sure the wires are securely clamped.
 7. Thread the two wires through heat-shrink tubing.
-8. Splice the other ends of the wires to a premade JST connector by braiding the wires together, tinning them with a bit of solder, and applying heat-shrink tubing to protect the connection.
+8. Splice the other ends of the wires to a pre-made JST connector by braiding the wires together, tinning them with a bit of solder, and applying heat-shrink tubing to protect the connection.
 
 Alternatively, you could use Dupont connectors.
 
@@ -275,7 +294,7 @@ Now it is time to run some initial tests to ensure the connections are good and 
 
 ### 3.1 Connect the Camera
 
-On the Pi, use your fingernail to carefully push both sides of the tiny black plastic connector bar straight away from the Pi. It should slide out about 1 millimeter. Be gentle, since you do not want to break this piece.
+On the Pi, use your fingernail to carefully push both sides of the tiny black plastic connector bar straight out from the Pi. It should slide out about 1 millimeter. Be gentle, since you do not want to break this piece.
 
 - Insert the ribbon cable with the metal contact strips facing the Pi.
 - With the ribbon cable fully inserted, slide the black connector bar back into place.
@@ -341,9 +360,12 @@ Wave your hand in front of the motion sensor. The LED should light up. If you st
 
 If the motion test fails, check both the pin wiring and the control-board wiring.
 
-> **Educational Background**
->
-> What do these commands actually mean?
+<details>
+<summary>Educational background</summary>
+
+Commands that start with `./` run a program in the current folder. `Ctrl-C` stops a running program. `cd` changes folders. `sudo` runs a command with administrator privileges. `shutdown -h now` tells the Pi to stop running safely before power is removed.
+
+</details>
 
 ### 3.4 Test the Camera
 
@@ -379,7 +401,7 @@ After you have verified that all system components are functioning, move on to t
 
 ## 4. Birdhouse Assembly
 
-The birdhouse, or other habitat, is up to you. The size, shape of the entrance, and especially the location of the habitat determine the types of animals you will attract and how successful the setup will be.
+The choice of birdhouse, or other habitat, is up to you. The size, shape of the entrance, and especially the location of the habitat determine the types of animals you will attract and how successful the setup will be.
 
 You can either buy an off-the-shelf birdhouse or build your own. If you buy one, make sure it is large enough to accommodate the camera, motion sensor, and LEDs. You will need to attach the enclosure to the outside and drill holes for the LEDs, motion sensor, and ribbon cable.
 
@@ -403,7 +425,7 @@ There should be four small holes in the back of the enclosure. Use `#4` wood scr
 
 If the enclosure does not already have holes, drill your own.
 
-If the enclosure comes with a weatherproofing gasket, the long squishy string, push this into the groove around the edge of the enclosure to help ensure a watertight seal.
+If the enclosure comes with a weatherproofing gasket, the long squishy strip, push it into the groove around the edge of the enclosure to help ensure a watertight seal.
 
 ### 4.3 Place the Camera in the Birdhouse
 
@@ -452,7 +474,7 @@ For powered setups:
 
 For battery and solar setups:
 
-- connect a 6-inch USB-C extension cord into the charging jack of the Pi
+- connect a 6-inch USB-C extension cord to the charging jack on the UPS HAT
 
 In all cases:
 
@@ -475,7 +497,7 @@ There are several different cameras you can choose from.
 
 ### Arducam for Raspberry Pi Camera Module 3, 12MP IMX708 75° Autofocus Noir Pi Camera V3
 
-This camera worked well in very low light. The drawback is that it lacks an infrared filter, so the colors shown with natural lighting are distorted and look pinkish.
+This camera worked well in very low light. The drawback is that it lacks an infrared filter, so colors under natural lighting are distorted and look pinkish.
 
 ### Waveshare IMX462 2MP IR-CUT Camera
 
@@ -489,11 +511,11 @@ Both should work.
 
 ### Waveshare IMX462 Configuration Change
 
-With the Waveshare camera, you need to make the following change in the configuration files for it to work.
+With the Waveshare camera, you need to make the following changes to the configuration files for it to work.
 
 Edit `/boot/firmware/config.txt` as follows:
 
 - set `camera_auto_detect=0`
 - add the line `dtoverlay=imx462`
 
-Then save the file and reboot. Otherwise, the Pi will not automatically detect this camera.
+Then save the file and reboot. Otherwise, the Pi will not automatically detect the camera.
