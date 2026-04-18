@@ -1,23 +1,21 @@
-# NestCamDIY
-
 <p align="center">
-  <img src="images/logo.png" alt="NestCamDIY logo" width="180">
+  <img src="images/logo.png" alt="NestCamDIY logo" width="120">
 </p>
 
-<p align="center"><em>A low-power wildlife camera for birdhouses and other small animal dwellings.</em></p>
+<h1 align="center">NestCamDIY</h1>
 
-<table align="center">
-  <tr>
-    <td align="center" width="50%">
-      <img src="images/birdhouse-image.png" alt="Live preview from inside the birdhouse camera" width="100%"><br>
-      <em>Live preview from inside the birdhouse.</em>
-    </td>
-    <td align="center" width="50%">
-      <img src="images/IMG_3510.jpeg" alt="Completed NestCamDIY birdhouse mounted on a tree" width="100%"><br>
-      <em>A completed NestCamDIY installation mounted outdoors.</em>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  A low-power wildlife camera for birdhouses and other small animal dwellings.
+</p>
+
+<p align="center">
+  <img src="images/birdhouse-image.png" alt="Live preview from inside the birdhouse camera" width="48%">
+  <img src="images/IMG_3510.jpeg" alt="Completed NestCamDIY birdhouse mounted on a tree" width="48%">
+</p>
+
+<p align="center">
+  <sub>Left: live preview from inside the birdhouse. Right: a completed outdoor installation.</sub>
+</p>
 
 NestCamDIY is a Raspberry Pi-based video camera that can be installed in a birdhouse, squirrel house, or other animal dwelling. Depending on how you build it, it can be powered by a wired power supply, a battery, or solar power. It works in both ambient light and complete darkness and streams a video feed to an address on your network, so you can view it in any browser. This allows live viewing from your phone, a computer, or even a dedicated video monitor.
 
