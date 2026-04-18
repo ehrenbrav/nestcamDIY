@@ -1,10 +1,8 @@
-<p align="center">
-  <img src="images/logo.png" alt="NestCamDIY logo" width="120">
+<p align="left">
+  <img src="images/logo.png" alt="NestCamDIY logo" width="180">
 </p>
 
-<h1 align="center">NestCamDIY</h1>
-
-<p align="center">
+<p align="left">
   A low-power wildlife camera for birdhouses and other small animal dwellings.
 </p>
 
@@ -41,6 +39,7 @@ If you are willing to solder a bit more, you can create your own custom board to
 > [!WARNING]
 > This is intended for use on a private network and should not be exposed to the internet without additional security hardening.
 
+> [!NOTE]
 > Solar is an excellent way to power the NestCam, but you will need to select the right size solar panels and position them well enough to reliably power the system. That may take some tinkering and depends heavily on the time of year and your particular installation.
 
 ## 1. Raspberry Pi Configuration
@@ -54,7 +53,7 @@ Download the Raspberry Pi Imager here:
 You will need to insert your new SD card into your computer using an SD card reader.
 
 <details>
-<summary><strong><em>Note: Educational Background: What is a Raspberry Pi, and why are we using one?</em></strong></summary>
+<summary><strong><em>Note: Educational Background — click to expand: What is a Raspberry Pi, and why are we using one?</em></strong></summary>
 
 > A Raspberry Pi is a very small single-board computer that can run Linux, connect to a network, store files on a microSD card, and control hardware attached to its pins. Even though it is tiny and inexpensive, it is still a real computer, so it can run the camera software, host a small web interface, and manage recordings.
 >
@@ -79,7 +78,7 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 - Once complete, remove the SD card.
 
 <details>
-<summary><strong><em>Note: Educational Background: What is a public key, and why might you use one?</em></strong></summary>
+<summary><strong><em>Note: Educational Background — click to expand: What is a public key, and why might you use one?</em></strong></summary>
 
 > A public key is one half of a key pair used for secure login. You copy the public half onto the Raspberry Pi and keep the private half on your own computer. When you connect, the Pi checks that your computer has the matching private key, so you can log in without sending a password across the network.
 >
@@ -133,7 +132,7 @@ ssh <NAME-OF-YOUR-PI>
 This is the name you selected when you wrote the SD card, not your Wi-Fi network name or your username.
 
 <details>
-<summary><strong><em>Note: Educational Background: What are a terminal and SSH?</em></strong></summary>
+<summary><strong><em>Note: Educational Background — click to expand: What are a terminal and SSH?</em></strong></summary>
 
 > A terminal is a text-based interface where you control a computer by typing commands instead of clicking on windows and icons. This can look intimidating at first, but for setup and troubleshooting it is often faster, clearer, and easier to document than using a graphical desktop.
 >
@@ -182,7 +181,7 @@ Once you have access to the Pi:
 8. If you are using a UPS HAT, switch the on/off switch to **off** once the Pi LED shows the Pi is off. If you are using a wired setup, simply unplug the power supply once the LED turns off.
 
 <details>
-<summary><strong><em>Note: Educational Background: How does the NestCamDIY software work?</em></strong></summary>
+<summary><strong><em>Note: Educational Background — click to expand: How does the NestCamDIY software work?</em></strong></summary>
 
 > The software installs a background service on the Raspberry Pi. That service controls the camera, reads the motion sensor, turns the infrared lights on when needed, saves recordings, and serves a simple web page that you can open from another device on your network.
 >
@@ -201,7 +200,7 @@ Use the schematic at `[LINK]` as a reference.
 The Pi both powers and controls the LEDs and motion detector using the GPIO pins. The LEDs are switched on and off using a MOSFET module, and the motion detector is a pre-built AM312 PIR sensor.
 
 <details>
-<summary><strong><em>Note: Educational Background: What are GPIO pins, and what is a MOSFET?</em></strong></summary>
+<summary><strong><em>Note: Educational Background — click to expand: What are GPIO pins, and what is a MOSFET?</em></strong></summary>
 
 > GPIO stands for General-Purpose Input/Output. These are pins on the Raspberry Pi that can either read signals from external devices or send signals out to control them. In this build, one GPIO pin reads the motion sensor, and another GPIO pin tells the LED control circuit when to turn the infrared lights on or off.
 >
@@ -225,7 +224,7 @@ For all three pigtails:
 3. Twist a 680-ohm resistor to the positive or negative lead of the LED.
 
    <details>
-   <summary><strong><em>Note: Educational Background: Why do we use a resistor here, and why 680 ohms?</em></strong></summary>
+   <summary><strong><em>Note: Educational Background — click to expand: Why do we use a resistor here, and why 680 ohms?</em></strong></summary>
 
 > A resistor limits the current flowing through the LED. Without one, too much current could pass through the LED, making it run too hot, shortening its life, or burning it out entirely. The resistor is there to make the circuit safe and predictable.
 >
@@ -253,7 +252,7 @@ You will need three wires:
 This sensor uses `3.3V` rather than the `5V` used with the LEDs, so yellow is used here to distinguish the lower-voltage supply.
 
 <details>
-<summary><strong><em>Note: Educational Background: What do positive supply and ground mean?</em></strong></summary>
+<summary><strong><em>Note: Educational Background — click to expand: What do positive supply and ground mean?</em></strong></summary>
 
 > The positive supply is the wire that provides voltage to a component. Ground is the return path that completes the electrical circuit. Most small electronic devices need both: power leaves the supply, passes through the device, and returns through ground.
 >
@@ -398,7 +397,7 @@ Wave your hand in front of the motion sensor. The LED should light up. If you st
 If the motion test fails, check both the pin wiring and the control-board wiring.
 
 <details>
-<summary><strong><em>Note: Educational Background: What do commands like <code>./</code>, <code>cd</code>, <code>sudo</code>, and <code>Ctrl-C</code> mean?</em></strong></summary>
+<summary><strong><em>Note: Educational Background — click to expand: What do commands like <code>./</code>, <code>cd</code>, <code>sudo</code>, and <code>Ctrl-C</code> mean?</em></strong></summary>
 
 > Commands that start with <code>./</code> run a program located in the current folder. <code>cd</code> changes which folder you are currently in. <code>sudo</code> runs a command with administrator privileges, which is sometimes necessary when installing software or changing system files. <code>Ctrl-C</code> stops a running command in the terminal.
 >
