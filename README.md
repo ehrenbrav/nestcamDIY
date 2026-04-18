@@ -405,6 +405,14 @@ The choice of birdhouse, or other habitat, is up to you. The size, shape of the 
 
 You can either buy an off-the-shelf birdhouse or build your own. If you buy one, make sure it is large enough to accommodate the camera, motion sensor, and LEDs. You will need to attach the enclosure to the outside and drill holes for the LEDs, motion sensor, and ribbon cable.
 
+Here is an example of a completed installation mounted outdoors:
+
+<p align="center">
+  <img src="images/IMG_3510.jpeg" alt="Completed NestCamDIY birdhouse mounted on a tree" width="650">
+</p>
+
+<p align="center"><em>Example completed installation with the enclosure mounted to the side of the birdhouse.</em></p>
+
 ### 4.1 Attach the Electronics to the Enclosure
 
 Stick one piece of Velcro onto the back of the Pi, or onto the battery if using a UPS HAT, and another piece onto the inside of the enclosure.
@@ -451,6 +459,13 @@ Then do the same with the motion sensor.
 
 Run all three cables back to the enclosure.
 
+
+<p align="center">
+  <img src="images/IMG_3511.jpeg" alt="Interior view of the birdhouse during assembly" width="650">
+</p>
+
+<p align="center"><em>Example interior view during assembly, showing the roof area and component placement inside the birdhouse.</em></p>
+
 ### 4.6 Put the Electronics Back Inside the Enclosure
 
 Place the electronics back inside the enclosure.
@@ -482,6 +497,13 @@ In all cases:
 - make sure there is some slack both inside and outside the enclosure
 
 For solar setups, also attach the solar power cable you previously made and route it through the notch.
+
+
+<p align="center">
+  <img src="images/IMG_3512.jpeg" alt="Cable entry points sealed on the enclosure" width="650">
+</p>
+
+<p align="center"><em>Example of wires routed through the enclosure and sealed with removable putty.</em></p>
 
 ## 5. Configuration
 
