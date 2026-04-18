@@ -48,13 +48,12 @@ Download the Raspberry Pi Imager here:
 You will need to insert your new SD card into your computer using an SD card reader.
 
 <details>
-<summary><strong><em>Educational Background: What is a Raspberry Pi, and why are we using one?</em></strong></summary>
+<summary><font color="#0969DA"><strong><em>📘 Educational Background: What is a Raspberry Pi, and why are we using one?</em></strong></font></summary>
 
-<blockquote>
-
-A Raspberry Pi is a tiny, inexpensive Linux computer. We use it here because it can control hardware through its GPIO pins, connect to Wi-Fi, run the camera and web server software, and do all of this with low power consumption in a very small package.
-
-</blockquote>
+> [!NOTE]
+> A Raspberry Pi is a very small single-board computer that can run Linux, connect to a network, store files on a microSD card, and control hardware attached to its pins. Even though it is tiny and inexpensive, it is still a real computer, so it can run the camera software, host a small web interface, and manage recordings.
+>
+> We are using one here because it gives a good balance of size, power use, flexibility, and cost. It can sit inside a small outdoor enclosure, talk to the camera and motion sensor directly, and be administered over Wi-Fi without needing a monitor or keyboard permanently attached.
 
 </details>
 
@@ -75,13 +74,12 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 - Once complete, remove the SD card.
 
 <details>
-<summary><strong><em>Educational Background: What is a public key, and why might you use one?</em></strong></summary>
+<summary><font color="#0969DA"><strong><em>📘 Educational Background: What is a public key, and why might you use one?</em></strong></font></summary>
 
-<blockquote>
-
-A public key is half of a cryptographic key pair used for logging in without typing a password. You place the public half on the Pi and keep the private half on your computer. This is usually more secure than password login and is also more convenient once set up.
-
-</blockquote>
+> [!NOTE]
+> A public key is one half of a key pair used for secure login. You copy the public half onto the Raspberry Pi and keep the private half on your own computer. When you connect, the Pi checks that your computer has the matching private key, so you can log in without sending a password across the network.
+>
+> This is generally both safer and more convenient than password login. It makes brute-force guessing much harder, and once it is set up properly, logging in is usually faster and less frustrating than typing a password each time.
 
 </details>
 
@@ -131,13 +129,12 @@ ssh <NAME-OF-YOUR-PI>
 This is the name you selected when you wrote the SD card, not your Wi-Fi network name or your username.
 
 <details>
-<summary><strong><em>Educational Background: What are a terminal and SSH?</em></strong></summary>
+<summary><font color="#0969DA"><strong><em>📘 Educational Background: What are a terminal and SSH?</em></strong></font></summary>
 
-<blockquote>
-
-A terminal is a text-based way of controlling a computer by typing commands. SSH, short for Secure Shell, lets you open a terminal session on another computer over the network. In this project, SSH is how you configure and manage the Pi without needing a monitor or keyboard connected to it.
-
-</blockquote>
+> [!NOTE]
+> A terminal is a text-based interface where you control a computer by typing commands instead of clicking on windows and icons. This can look intimidating at first, but for setup and troubleshooting it is often faster, clearer, and easier to document than using a graphical desktop.
+>
+> SSH stands for Secure Shell. It lets you open a terminal session on another computer over the network in an encrypted way. In this project, SSH is how you log into the Pi from your regular computer so you can install software, edit settings, and run tests without having to connect a screen, mouse, and keyboard to the Pi itself.
 
 </details>
 
@@ -182,13 +179,12 @@ Once you have access to the Pi:
 8. If you are using a UPS HAT, switch the on/off switch to **off** once the Pi LED shows the Pi is off. If you are using a wired setup, simply unplug the power supply once the LED turns off.
 
 <details>
-<summary><strong><em>Educational Background: How does the NestCamDIY software work?</em></strong></summary>
+<summary><font color="#0969DA"><strong><em>📘 Educational Background: How does the NestCamDIY software work?</em></strong></font></summary>
 
-<blockquote>
-
-The software installs a background service on the Pi that manages the camera, motion-triggered recording, infrared light control, and a small local web interface. That web interface lets you view the live stream, check status, and download recordings from another device on your network.
-
-</blockquote>
+> [!NOTE]
+> The software installs a background service on the Raspberry Pi. That service controls the camera, reads the motion sensor, turns the infrared lights on when needed, saves recordings, and serves a simple web page that you can open from another device on your network.
+>
+> In practical terms, the setup script places files in the right system locations, installs any required packages, and configures the service so it starts automatically. After that, the Pi behaves more like an appliance: it boots up, starts the NestCam software on its own, and keeps running until you deliberately change the configuration or stop the service for maintenance.
 
 </details>
 
@@ -203,13 +199,12 @@ Use the schematic at `[LINK]` as a reference.
 The Pi both powers and controls the LEDs and motion detector using the GPIO pins. The LEDs are switched on and off using a MOSFET module, and the motion detector is a pre-built AM312 PIR sensor.
 
 <details>
-<summary><strong><em>Educational Background: What are GPIO pins, and what is a MOSFET?</em></strong></summary>
+<summary><font color="#0969DA"><strong><em>📘 Educational Background: What are GPIO pins, and what is a MOSFET?</em></strong></font></summary>
 
-<blockquote>
-
-GPIO pins are the Raspberry Pi's general-purpose input and output pins. They let the Pi read signals from devices such as the motion sensor and control devices such as the LEDs. A MOSFET is an electronic switch. Here, the Pi uses a GPIO pin to control the MOSFET, and the MOSFET switches the higher-current LED power on and off safely.
-
-</blockquote>
+> [!NOTE]
+> GPIO stands for General-Purpose Input/Output. These are pins on the Raspberry Pi that can either read signals from external devices or send signals out to control them. In this build, one GPIO pin reads the motion sensor, and another GPIO pin tells the LED control circuit when to turn the infrared lights on or off.
+>
+> A MOSFET is an electronic switch. The Pi's GPIO pins can only provide a small amount of current, which is not enough to power the LEDs directly. Instead, the GPIO pin controls the MOSFET, and the MOSFET switches the higher-current LED power safely. That protects the Pi and lets a tiny control signal operate a larger load.
 
 </details>
 
@@ -229,13 +224,12 @@ For all three pigtails:
 3. Twist a 680-ohm resistor to the positive or negative lead of the LED.
 
    <details>
-   <summary><strong><em>Educational Background: Why do we use a resistor here, and why 680 ohms?</em></strong></summary>
+   <summary><font color="#0969DA"><strong><em>📘 Educational Background: Why do we use a resistor here, and why 680 ohms?</em></strong></font></summary>
 
-   <blockquote>
-
-   The resistor limits current so the LED is not overdriven and damaged. A value around 680 ohms keeps the current low enough for a simple, safe indicator-style setup while still giving useful light output. Exact brightness is not critical here, so it is a practical conservative choice.
-
-   </blockquote>
+> [!NOTE]
+> A resistor limits the current flowing through the LED. Without one, too much current could pass through the LED, making it run too hot, shortening its life, or burning it out entirely. The resistor is there to make the circuit safe and predictable.
+>
+> A value around 680 ohms is a conservative, practical choice for a simple indicator-style LED setup like this. It keeps the current low enough to avoid stressing the parts while still producing enough light to confirm that the circuit is working. The exact value is not especially critical here, but using a resistor in roughly this range is good practice.
 
    </details>
 
@@ -259,13 +253,12 @@ You will need three wires:
 This sensor uses `3.3V` rather than the `5V` used with the LEDs, so yellow is used here to distinguish the lower-voltage supply.
 
 <details>
-<summary><strong><em>Educational Background: What do positive supply and ground mean?</em></strong></summary>
+<summary><font color="#0969DA"><strong><em>📘 Educational Background: What do positive supply and ground mean?</em></strong></font></summary>
 
-<blockquote>
-
-The positive supply is the wire that provides electrical voltage to a component. Ground is the return path that completes the circuit. Most small electronics need both connections to work: power flows from the positive supply, through the device, and back through ground.
-
-</blockquote>
+> [!NOTE]
+> The positive supply is the wire that provides voltage to a component. Ground is the return path that completes the electrical circuit. Most small electronic devices need both: power leaves the supply, passes through the device, and returns through ground.
+>
+> In practice, you can think of the positive supply as the wire bringing energy in and ground as the wire that lets that energy flow back out. Getting these connections right matters. If power and ground are swapped, the part may not work, and in some cases it can be damaged.
 
 </details>
 
@@ -406,13 +399,12 @@ Wave your hand in front of the motion sensor. The LED should light up. If you st
 If the motion test fails, check both the pin wiring and the control-board wiring.
 
 <details>
-<summary><strong><em>Educational Background: What do commands like <code>./</code>, <code>cd</code>, <code>sudo</code>, and <code>Ctrl-C</code> mean?</em></strong></summary>
+<summary><font color="#0969DA"><strong><em>📘 Educational Background: What do commands like <code>./</code>, <code>cd</code>, <code>sudo</code>, and <code>Ctrl-C</code> mean?</em></strong></font></summary>
 
-<blockquote>
-
-Commands that start with `./` run a program in the current folder. `Ctrl-C` stops a running program. `cd` changes folders. `sudo` runs a command with administrator privileges. `shutdown -h now` tells the Pi to stop running safely before power is removed.
-
-</blockquote>
+> [!NOTE]
+> Commands that start with <code>./</code> run a program located in the current folder. <code>cd</code> changes which folder you are currently in. <code>sudo</code> runs a command with administrator privileges, which is sometimes necessary when installing software or changing system files. <code>Ctrl-C</code> stops a running command in the terminal.
+>
+> These are basic building blocks of working in Linux. Once you understand a few of them, instructions become much easier to follow. For example, <code>cd test</code> moves into the test folder, <code>./test_led.py</code> runs the LED test script from that folder, and <code>sudo shutdown -h now</code> tells the Pi to shut down cleanly before you remove power.
 
 </details>
 
