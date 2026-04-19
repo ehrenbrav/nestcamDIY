@@ -69,6 +69,33 @@ def env_int(name: str, default: int | None = None) -> int | None:
     return int(raw)
 
 
+def parse_time_of_day(raw: str, *, name: str) -> dt.time:
+    value = raw.strip()
+    for fmt in ("%H:%M", "%H:%M:%S"):
+        try:
+            return dt.datetime.strptime(value, fmt).time()
+        except ValueError:
+            pass
+    raise ValueError(f"Invalid time value for {name}: {raw!r}. Expected HH:MM or HH:MM:SS")
+
+
+def seconds_since_midnight(value: dt.time) -> int:
+    return (value.hour * 3600) + (value.minute * 60) + value.second
+
+
+def night_mode_active_now(start: dt.time, end: dt.time, *, now: dt.datetime | None = None) -> bool:
+    current = (now or dt.datetime.now().astimezone()).time()
+    current_seconds = seconds_since_midnight(current)
+    start_seconds = seconds_since_midnight(start)
+    end_seconds = seconds_since_midnight(end)
+
+    if start_seconds == end_seconds:
+        return False
+    if start_seconds < end_seconds:
+        return start_seconds <= current_seconds < end_seconds
+    return current_seconds >= start_seconds or current_seconds < end_seconds
+
+
 def gb_to_bytes(x: float) -> int:
     return int(x * (1024 ** 3))
 
@@ -665,11 +692,24 @@ IR_GPIO = int(os.getenv("IR_GPIO", "18"))
 IR_ACTIVE_HIGH = env_bool("IR_ACTIVE_HIGH", True)
 IR_BRIGHTNESS = max(0.0, min(1.0, float(os.getenv("IR_BRIGHTNESS", "1.0"))))
 IR_PWM_FREQUENCY = float(os.getenv("IR_PWM_FREQUENCY", "500"))
+NIGHT_MODE_START = parse_time_of_day(os.getenv("NIGHT_MODE_START", "20:00"), name="NIGHT_MODE_START")
+NIGHT_MODE_END = parse_time_of_day(os.getenv("NIGHT_MODE_END", "06:00"), name="NIGHT_MODE_END")
+IR_CUT_GPIO = env_int("IR_CUT_GPIO")
+IR_CUT_ENABLED = env_bool("IR_CUT_ENABLED", IR_CUT_GPIO is not None)
+IR_CUT_DAY_HIGH = env_bool("IR_CUT_DAY_HIGH", True)
 
 ensure_dir(RECORDINGS_ROOT)
 ensure_dir(STATUS_FILE.parent)
 
 PAGE = build_page(VIDEO_SIZE)
+
+if IR_CUT_ENABLED and IR_CUT_GPIO is None:
+    logging.warning("IR_CUT is enabled but IR_CUT_GPIO is not set; disabling IR-cut control")
+    IR_CUT_ENABLED = False
+if seconds_since_midnight(NIGHT_MODE_START) == seconds_since_midnight(NIGHT_MODE_END):
+    logging.warning("NIGHT_MODE_START and NIGHT_MODE_END are the same; night mode will be disabled")
+if IR_CUT_GPIO is not None and IR_CUT_GPIO == IR_GPIO:
+    logging.warning("IR_CUT_GPIO and IR_GPIO are the same GPIO pin; IR-cut and IR light control will conflict")
 
 
 # -------------------- LAN-only cache --------------------
@@ -955,10 +995,10 @@ class GpioZeroPWMLEDDriver(LedDriverBase):
 class GpioZeroDigitalDriver(LedDriverBase):
     backend_name = "gpiozero_digital"
 
-    def __init__(self, gpio: int, active_high: bool) -> None:
+    def __init__(self, gpio: int, active_high: bool, *, initial_on: bool = False) -> None:
         if OutputDevice is None:
             raise RuntimeError("gpiozero OutputDevice unavailable")
-        self.device = OutputDevice(gpio, active_high=active_high, initial_value=False)
+        self.device = OutputDevice(gpio, active_high=active_high, initial_value=initial_on)
 
     def set_brightness(self, value: float) -> None:
         if value > 0.0:
@@ -968,6 +1008,32 @@ class GpioZeroDigitalDriver(LedDriverBase):
 
     def close(self) -> None:
         self.device.close()
+
+
+class RPiGPIOBinaryDriver(LedDriverBase):
+    backend_name = "rpi_gpio_binary"
+
+    def __init__(self, gpio: int, active_high: bool, *, initial_on: bool = False) -> None:
+        if RPI_GPIO is None:
+            raise RuntimeError("RPi.GPIO module not available")
+        self.GPIO = RPI_GPIO
+        self.gpio = gpio
+        self.active_high = active_high
+        self.GPIO.setwarnings(False)
+        self.GPIO.setmode(self.GPIO.BCM)
+        self.GPIO.setup(self.gpio, self.GPIO.OUT)
+        self.set_brightness(1.0 if initial_on else 0.0)
+
+    def set_brightness(self, value: float) -> None:
+        on = value > 0.0
+        level = self.GPIO.HIGH if (on == self.active_high) else self.GPIO.LOW
+        self.GPIO.output(self.gpio, level)
+
+    def close(self) -> None:
+        try:
+            self.GPIO.cleanup(self.gpio)
+        except Exception:
+            pass
 
 
 def build_ir_driver():
@@ -1016,6 +1082,7 @@ class IRLightController:
         self.lock = threading.Lock()
         self.live_active = False
         self.recording_active = False
+        self.night_mode = False
         self.driver = build_ir_driver()
         self.driver_backend = self.driver.backend_name if self.driver is not None else "unavailable"
 
@@ -1023,7 +1090,7 @@ class IRLightController:
         if self.driver is None:
             return
 
-        want_on = self.live_active or self.recording_active
+        want_on = self.night_mode and (self.live_active or self.recording_active)
         try:
             self.driver.set_brightness(IR_BRIGHTNESS if want_on else 0.0)
         except Exception as exc:
@@ -1039,13 +1106,23 @@ class IRLightController:
             self.recording_active = bool(active)
             self._apply_locked()
 
+    def set_night_mode(self, enabled: bool):
+        with self.lock:
+            self.night_mode = bool(enabled)
+            self._apply_locked()
+
     def is_on(self) -> bool:
         with self.lock:
             return (
                 self.driver is not None
+                and self.night_mode
                 and (self.live_active or self.recording_active)
                 and IR_BRIGHTNESS > 0.0
             )
+
+    def night_mode_enabled(self) -> bool:
+        with self.lock:
+            return self.night_mode
 
     def brightness(self) -> float:
         return IR_BRIGHTNESS
@@ -1057,6 +1134,7 @@ class IRLightController:
         with self.lock:
             self.live_active = False
             self.recording_active = False
+            self.night_mode = False
             if self.driver is None:
                 return
             try:
@@ -1067,6 +1145,93 @@ class IRLightController:
             finally:
                 self.driver = None
 
+
+class IRCutController:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.enabled = IR_CUT_ENABLED and IR_CUT_GPIO is not None
+        self.driver = None
+        self.driver_backend = "disabled"
+        self.mode = "night" if night_mode_active_now(NIGHT_MODE_START, NIGHT_MODE_END) else "day"
+
+        if not self.enabled:
+            return
+
+        errors = []
+        try:
+            self.driver = GpioZeroDigitalDriver(IR_CUT_GPIO, IR_CUT_DAY_HIGH, initial_on=(self.mode == "day"))
+            self.driver_backend = self.driver.backend_name
+            logging.info(
+                "IR-cut configured on GPIO%d using %s (day_high=%s)",
+                IR_CUT_GPIO,
+                self.driver_backend,
+                IR_CUT_DAY_HIGH,
+            )
+            return
+        except Exception as exc:
+            errors.append(f"gpiozero digital failed: {exc}")
+
+        try:
+            self.driver = RPiGPIOBinaryDriver(IR_CUT_GPIO, IR_CUT_DAY_HIGH, initial_on=(self.mode == "day"))
+            self.driver_backend = self.driver.backend_name
+            logging.info(
+                "IR-cut configured on GPIO%d using %s (day_high=%s)",
+                IR_CUT_GPIO,
+                self.driver_backend,
+                IR_CUT_DAY_HIGH,
+            )
+            return
+        except Exception as exc:
+            errors.append(f"RPi.GPIO failed: {exc}")
+
+        self.enabled = False
+        self.driver_backend = "unavailable"
+        logging.warning(
+            "Failed to initialize IR-cut on GPIO%d. Details: %s",
+            IR_CUT_GPIO,
+            "; ".join(errors) if errors else "no GPIO backend available",
+        )
+
+    def set_day_mode(self):
+        with self.lock:
+            self.mode = "day"
+            if self.driver is None:
+                return
+            try:
+                self.driver.set_brightness(1.0)
+            except Exception as exc:
+                logging.warning("Failed to set IR-cut day mode via %s: %s", self.driver_backend, exc)
+
+    def set_night_mode(self):
+        with self.lock:
+            self.mode = "night"
+            if self.driver is None:
+                return
+            try:
+                self.driver.set_brightness(0.0)
+            except Exception as exc:
+                logging.warning("Failed to set IR-cut night mode via %s: %s", self.driver_backend, exc)
+
+    def current_mode(self) -> str:
+        with self.lock:
+            return self.mode
+
+    def backend(self) -> str:
+        return self.driver_backend
+
+    def is_enabled(self) -> bool:
+        return self.enabled
+
+    def close(self):
+        with self.lock:
+            if self.driver is None:
+                return
+            try:
+                self.driver.close()
+            except Exception as exc:
+                logging.warning("Failed to close IR-cut device via %s: %s", self.driver_backend, exc)
+            finally:
+                self.driver = None
 
 # -------------------- Motion input --------------------
 class MotionInput:
@@ -1495,6 +1660,9 @@ class NestCamDaemon:
 
         self.stream_output = StreamingOutput()
         self.ir = IRLightController()
+        self.ir_cut = IRCutController()
+        self.day_night_mode = self.determine_day_night_mode()
+        self.day_night_mode_chosen_at = None
         self.live = LiveController(
             on_first_client=self.start_live_streaming,
             on_idle_grace_elapsed=self.stop_live_streaming_if_idle,
@@ -1503,6 +1671,28 @@ class NestCamDaemon:
 
         self.stop_event = threading.Event()
         self.state_lock = threading.Lock()
+
+    def determine_day_night_mode(self) -> str:
+        if night_mode_active_now(NIGHT_MODE_START, NIGHT_MODE_END):
+            return "night"
+        return "day"
+
+    def apply_day_night_mode_at_startup(self):
+        mode = self.determine_day_night_mode()
+        self.day_night_mode = mode
+        self.day_night_mode_chosen_at = dt.datetime.now().astimezone()
+        self.ir.set_night_mode(mode == "night")
+        if mode == "night":
+            self.ir_cut.set_night_mode()
+        else:
+            self.ir_cut.set_day_mode()
+        logging.info(
+            "Camera mode at startup: %s (night window %s-%s, ir_cut_enabled=%s)",
+            mode,
+            NIGHT_MODE_START.strftime("%H:%M"),
+            NIGHT_MODE_END.strftime("%H:%M"),
+            self.ir_cut.is_enabled(),
+        )
 
     def build_camera_controls(self):
         controls = {"FrameRate": FPS}
@@ -1534,6 +1724,7 @@ class NestCamDaemon:
             self.picam2.start()
             self.camera_running = True
             self.last_camera_idle = 0.0
+            self.apply_day_night_mode_at_startup()
             logging.info("Camera started (main=%s controls=%s)", VIDEO_SIZE, controls)
 
     def maybe_stop_camera_if_idle(self):
@@ -1719,9 +1910,19 @@ class NestCamDaemon:
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"
             f"auth_enabled={AUTH_ENABLED}\n"
+            f"day_night_mode={self.day_night_mode}\n"
+            f"day_night_mode_chosen_at={self.day_night_mode_chosen_at.isoformat() if self.day_night_mode_chosen_at else 'never'}\n"
+            f"night_mode_start={NIGHT_MODE_START.strftime('%H:%M')}\n"
+            f"night_mode_end={NIGHT_MODE_END.strftime('%H:%M')}\n"
             f"ir_on={self.ir.is_on()}\n"
+            f"ir_night_mode={self.ir.night_mode_enabled()}\n"
             f"ir_brightness={self.ir.brightness():.2f}\n"
             f"ir_backend={self.ir.backend()}\n"
+            f"ir_cut_enabled={self.ir_cut.is_enabled()}\n"
+            f"ir_cut_gpio={IR_CUT_GPIO}\n"
+            f"ir_cut_day_high={IR_CUT_DAY_HIGH}\n"
+            f"ir_cut_backend={self.ir_cut.backend()}\n"
+            f"ir_cut_mode={self.ir_cut.current_mode()}\n"
             f"motion_gpio_pin={MOTION_GPIO_PIN}\n"
             f"motion_active_high={MOTION_ACTIVE_HIGH}\n"
             f"motion_pull={motion_pull_label(MOTION_PULL)}\n"
@@ -1816,6 +2017,10 @@ class NestCamDaemon:
             pass
         try:
             self.ir.close()
+        except Exception:
+            pass
+        try:
+            self.ir_cut.close()
         except Exception:
             pass
 

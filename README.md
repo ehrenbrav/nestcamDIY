@@ -806,23 +806,46 @@ A good way to tune the system is to change only one or two variables at a time. 
 
 ## 6. Camera Choice
 
-There are several different cameras you can choose from.
+At this point, there are two camera options that make the most sense for this project:
 
-### Arducam for Raspberry Pi Camera Module 3, 12MP IMX708 75° Autofocus Noir Pi Camera V3
+- the **Arducam for Raspberry Pi Camera Module 3, 12MP IMX708 75° Autofocus NoIR Pi Camera V3**
+- the **Waveshare IMX462 2MP IR-CUT Camera**
 
-This camera worked well in very low light. The drawback is that it lacks an infrared filter, so colors under natural lighting are distorted and look pinkish.
+Both can work well with NestCamDIY because the infrared illumination in this project comes from **separate external IR LEDs** that are controlled by the Pi. That matters because it avoids a major power-budget problem seen on some other camera boards: built-in IR lights that switch on automatically and draw power whether you want them or not. With the two cameras discussed here, the IR lighting is under your control.
 
-### Waveshare IMX462 2MP IR-CUT Camera
+### Arducam Camera Module 3 NoIR (IMX708)
 
-This camera is specifically marketed as working well in low light while also supporting IR-cut behavior. The drawback is availability, since lead time may be two weeks or more depending on whether it is available on Amazon.
+This is the simpler and more mainstream option. It offers much higher resolution than the Waveshare, autofocus, and a camera family that is already very familiar in the Raspberry Pi ecosystem. If you want the easiest path to a working image, the option to crop later, or the flexibility of autofocus in a small enclosure where camera placement may not be perfect, this is a strong choice.
 
-Both should work.
+The main drawback is that it is a **NoIR** camera, meaning it does not have an infrared-blocking filter. That makes it excellent for low-light and infrared use, but it also means daylight colors are less accurate. Under normal visible light, foliage and feathers can take on odd pinkish or purplish tones because the sensor is also seeing infrared that a normal daylight camera would block. If your main goal is simply to observe behavior and get a reliable image day and night, this may be perfectly acceptable. If you care a lot about natural-looking daytime plumage and nest appearance, it is a real downside.
 
-The Arducam IMX708 option gives you much higher resolution, autofocus, and broad software familiarity because it is built around the same Sony IMX708 family used in Raspberry Pi Camera Module 3 products. That makes it a good choice if you want flexibility in framing, the option to crop the image later, or if you expect the camera distance to change and want autofocus to handle that automatically. The tradeoff is that this extra resolution is not always necessary for a birdhouse stream, and autofocus can be one more variable to manage in a fixed installation. Because the NoIR version does not use an IR-cut filter, it is also not ideal if faithful daytime color is important. 
+### Waveshare IMX462 IR-CUT Camera
 
-The Waveshare IMX462 is in some ways the more specialized camera for this project. Its Sony IMX462 sensor is designed for strong low-light and near-infrared performance, and the board includes an IR-cut mechanism so daytime color is more normal while still working well with IR illumination at night. It is also only a 1080p camera, which can actually be an advantage here because it is simpler and more in line with what the Pi Zero 2 W needs for a small streaming appliance. The tradeoffs are that you give up the extra detail of a 12MP sensor, the lens is fixed-focus rather than autofocus, and setup can take a little more tinkering because the Pi may not auto-detect it without the configuration change described below.
+The Waveshare is the more specialized day-and-night option. It is a lower-resolution camera, but the IMX462 sensor is designed for strong low-light performance, and the board includes an **IR-cut filter** that can be switched for daytime or nighttime use. In practice, that means it can preserve more normal-looking daytime color while still working well with external infrared illumination at night.
 
-In practical terms, choose the Arducam if you want the easier mainstream camera path and value higher resolution and autofocus more than accurate daytime color. Choose the Waveshare if your priority is reliable day-and-night operation, better low-light behavior, and cleaner visible-light color during the daytime, even if that means lower resolution and a slightly more custom setup.
+The main tradeoffs are lower resolution, fixed focus rather than autofocus, and a somewhat more custom setup. The Pi may not auto-detect it without a configuration change, and if you want the system to switch the IR-cut filter automatically you may need to wire the filter-control pad to a GPIO and enable the matching software support. So while the Waveshare is a very good fit for the actual imaging problem in a birdhouse, it can require a bit more setup effort.
+
+### How to Choose
+
+For most birdhouse use, the most important question is not resolution but **what you care about most during the day**, because birds are usually most active in daylight.
+
+Choose the **Waveshare IMX462** if:
+
+- you want more natural-looking daytime color
+- you want the best day/night balance from one camera
+- you are willing to do a slightly more custom setup
+- you are comfortable with 1080p resolution and fixed focus
+
+Choose the **Arducam IMX708 NoIR** if:
+
+- you want the simpler, more mainstream camera path
+- you want autofocus and much higher resolution
+- you may want to crop the image later
+- you do not mind distorted daytime color
+
+In other words, the Arducam is the easier and more flexible general-purpose camera, while the Waveshare is the better fit if you care more about correct daytime color and cleaner switching between normal daylight viewing and infrared night viewing.
+
+A final point on power: because both of these options use **external IR LEDs** rather than built-in camera-mounted illuminators, both can fit a low-power NestCamDIY build. The key difference is not power draw from the camera itself, but whether you want the simplicity of the Arducam NoIR path or the better daytime color of the Waveshare IR-cut path.
 
 ### Waveshare IMX462 Configuration Change
 
