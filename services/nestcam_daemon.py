@@ -1677,8 +1677,8 @@ class NestCamDaemon:
             return "night"
         return "day"
 
-    def apply_day_night_mode_at_startup(self):
-        mode = self.determine_day_night_mode()
+    def apply_day_night_mode_at_startup(self, mode: str | None = None):
+        mode = mode or self.determine_day_night_mode()
         self.day_night_mode = mode
         self.day_night_mode_chosen_at = dt.datetime.now().astimezone()
         self.ir.set_night_mode(mode == "night")
@@ -1687,14 +1687,21 @@ class NestCamDaemon:
         else:
             self.ir_cut.set_day_mode()
         logging.info(
-            "Camera mode at startup: %s (night window %s-%s, ir_cut_enabled=%s)",
+            "Camera mode at startup: %s (night window %s-%s, ir_cut_enabled=%s, effective_saturation=%s)",
             mode,
             NIGHT_MODE_START.strftime("%H:%M"),
             NIGHT_MODE_END.strftime("%H:%M"),
             self.ir_cut.is_enabled(),
+            self.effective_saturation_for_mode(mode),
         )
 
-    def build_camera_controls(self):
+    def effective_saturation_for_mode(self, mode: str | None = None):
+        selected_mode = mode or self.day_night_mode
+        if selected_mode == "night":
+            return 0.0
+        return SATURATION
+
+    def build_camera_controls(self, mode: str | None = None):
         controls = {"FrameRate": FPS}
         if AE_ENABLE is not None:
             controls["AeEnable"] = AE_ENABLE
@@ -1702,8 +1709,10 @@ class NestCamDaemon:
             controls["ExposureTime"] = EXPOSURE_TIME
         if ANALOGUE_GAIN is not None:
             controls["AnalogueGain"] = ANALOGUE_GAIN
-        if SATURATION is not None:
-            controls["Saturation"] = SATURATION
+
+        effective_saturation = self.effective_saturation_for_mode(mode)
+        if effective_saturation is not None:
+            controls["Saturation"] = effective_saturation
         return controls
 
     def ensure_camera_started(self):
@@ -1712,7 +1721,8 @@ class NestCamDaemon:
                 return
 
             ensure_dir(RECORDINGS_ROOT)
-            controls = self.build_camera_controls()
+            mode = self.determine_day_night_mode()
+            controls = self.build_camera_controls(mode)
             if not self.camera_configured:
                 config = self.picam2.create_video_configuration(
                     main={"size": VIDEO_SIZE, "format": "YUV420"},
@@ -1724,7 +1734,11 @@ class NestCamDaemon:
             self.picam2.start()
             self.camera_running = True
             self.last_camera_idle = 0.0
-            self.apply_day_night_mode_at_startup()
+            try:
+                self.picam2.set_controls(controls)
+            except Exception as exc:
+                logging.warning("Failed to apply camera controls after start: %s", exc)
+            self.apply_day_night_mode_at_startup(mode)
             logging.info("Camera started (main=%s controls=%s)", VIDEO_SIZE, controls)
 
     def maybe_stop_camera_if_idle(self):
@@ -1906,6 +1920,7 @@ class NestCamDaemon:
             f"exposure_time={EXPOSURE_TIME}\n"
             f"analogue_gain={ANALOGUE_GAIN}\n"
             f"saturation={SATURATION}\n"
+            f"effective_saturation={self.effective_saturation_for_mode()}\n"
             f"free_gb={free_bytes / (1024 ** 3):.2f}\n"
             f"min_free_gb={MIN_FREE_GB:.2f}\n"
             f"wifi_iface={wifi_iface()}\n"

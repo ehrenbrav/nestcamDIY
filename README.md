@@ -467,7 +467,7 @@ Pin 6   (GND)    -> Black  -> Motion detector - pin
 Pin 12  (GPIO18) -> Blue   -> MOSFET + control pin
 Pin 14  (GND)    -> Black  -> MOSFET - control pin
 Pin 16  (GPIO23) -> Green  -> Motion detector signal pin (unconnected for testing)
-Pin 18  (GPIO24) -> Orange  -> (Optional) IR filter enable/disable on Waveshare camera
+Pin 18  (GPIO24) -> Orange -> (Optional - comes later) IR filter enable/disable on Waveshare camera
 Pin 20  (GND)    -> Black  -> MOSFET power supply - screw terminal (power supply side)
 ```
 
@@ -502,6 +502,9 @@ On the Pi, use your fingernail to carefully push both sides of the tiny black pl
 - The ribbon cable should then feel securely connected and should not pull out easily.
 - Repeat the same process on the camera side.
 - On the camera side as well, the metal contact strips should face the board.
+- If you are using the Waveshare camera, you additionally need to connect a wire to control the IR filter.
+-- If you are making your own JST connectors, cut a piece of orange wire long enough to reach from the camera to the Pi header pins. Strip both ends. Thread one end through the "GPIO" hole in the Waveshare camera, so that the wire comes out of the front of the board, on the same side as the camera. Solder this to the board. Connect a female socket to the other end and attach to Pin 18 of the Pi.
+-- If you are using pre-made jumper wires, put the pin of an orange wire through the "GPIO" hole in the Waveshare board so that the wire comes out of the front (camera-side) of the board. Solder this to the board. Connect the other end to Pin 18 of the Pi.
 
 ### 3.2 Boot the Pi
 
@@ -677,6 +680,12 @@ Run all three cables back to the enclosure.
 
 Place the electronics back inside the enclosure. 
 
+<p align="center">
+  <img src="images/IMG_3514.jpeg" alt="Electronics installed inside the rear enclosure" width="650">
+</p>
+
+<p align="center"><em>Rear enclosure open, showing the Pi, UPS HAT, wiring, and cable routing.</em></p>
+
 ### 4.7 Reconnect the Ribbon Cable
 
 Connect the ribbon cable to the Pi as before, if it is not already connected.
@@ -707,6 +716,12 @@ For solar setups, also attach the solar power cable you previously made and rout
 </p>
 
 <p align="center"><em>Example of wires routed through the enclosure and sealed with removable putty.</em></p>
+
+<p align="center">
+  <img src="images/IMG_3513.jpeg" alt="Rear of the birdhouse with the enclosure closed" width="650">
+</p>
+
+<p align="center"><em>Rear view with the enclosure closed and the ribbon cable and other wires routed along the side of the birdhouse.</em></p>
 
 ### 4.10 Test the System.
 
@@ -896,4 +911,80 @@ sudo nmcli connection delete "YOUR-SSID"
 
 A good practical approach is to add both your setup network and your final deployment network before you ever move the unit. That way, you can still reach the Pi in either location without having to take the enclosure apart or connect a monitor and keyboard.
 
-**TODO** Updating and Powering Off the Pi
+## Updating the Software and Pi
+
+The NestCamDIY is intended to stay running continuously. In normal use, you should leave it powered on and connected. When you want to update either the NestCamDIY software or the Raspberry Pi operating system, do it over SSH.
+
+### Updating the NestCamDIY repository and reinstalling the software
+
+Connect to the Pi over SSH and go to the project directory:
+
+```bash
+cd ~/NestCamDIY
+```
+
+Then pull down the latest version of the repository:
+
+```bash
+git pull
+```
+
+After that, run the installer again:
+
+```bash
+sudo python setup.py
+```
+
+This is important because `setup.py` does more than just install Python code. It also updates the files that are copied into system locations, such as the daemon, service files, web files, and configuration templates.
+
+Once it finishes, restart the main service:
+
+```bash
+sudo systemctl restart nestcam.service
+```
+
+If you want to confirm that it came back up cleanly, run:
+
+```bash
+sudo systemctl status nestcam.service
+```
+
+### Updating the Raspberry Pi operating system
+
+To update the operating system packages on the Pi, run:
+
+```bash
+sudo apt update
+sudo apt full-upgrade
+```
+
+This updates the package lists and then installs the latest available package versions for the system. It may take a while. If the update installs a new kernel, firmware, camera stack, or other important system package, reboot the Pi afterward:
+
+```bash
+sudo reboot
+```
+
+After the Pi comes back up, reconnect over SSH and confirm that the NestCam service is running:
+
+```bash
+sudo systemctl status nestcam.service
+```
+
+If you updated both the operating system and the NestCamDIY repository, it is a good idea to run `sudo python setup.py` again after major system changes, especially if camera-related packages or service files may have changed.
+
+## Powering off the Pi
+
+This system is meant to stay powered on continuously, so you should not normally shut it down after everyday use. A shutdown is mainly for long-term storage, major hardware changes, or moving the unit somewhere that it will be disconnected from power.
+
+To shut it down cleanly, connect over SSH and run:
+
+```bash
+sudo shutdown -h now
+```
+
+Wait for the Pi activity LED to stop and for the system to fully power down before disconnecting power.
+
+- If you are using a wired setup, unplug the power supply only after the Pi has shut down.
+- If you are using the UPS HAT, switch the HAT to **off** only after the Pi has shut down.
+
+Avoid just pulling power without shutting down first unless there is no other option, because that can corrupt the microSD card or damage files.
