@@ -11,15 +11,7 @@
 </p>
 
 <p align="center">
-  <sub>Streaming video from inside the birdhouse.</sub>
-</p>
-
-<p align="center">
   <img src="images/IMG_3510.jpeg" alt="Completed NestCamDIY birdhouse mounted on a tree" width="88%">
-</p>
-
-<p align="center">
-  <sub>Can be powered by solar panels, batteries, or a USB.</sub>
 </p>
 
 ## Introduction
@@ -42,13 +34,25 @@ If you are willing to solder a bit more, you can create your own custom board to
 
 ## Power Considerations
 
-The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger, and connect this to the device. Alternatively, you can use either a battery or a solar setup. Both involve using an uninterruptible power supply to power the device while you are swapping out the battery or when it is dark out.
+The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger, and connect this to the device. Alternatively, you can use either a battery or a solar setup. Both involve using an uninterruptible power supply to power the device while you are swapping out the battery or when it is dark.
 
-You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions.
+You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. You can periodically recharge this external battery - the onboard UPS power supply should keep the system running while you do so.
 
-## Cost 
+For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions. There is a section on this below with more details.
 
-Assuming you have the tools you'll need (soldering iron, wire strippers, a drill, etc.), the cost of the electronics should be on the order of $250. This does not include the birdhouse itself, any solar panels, or an external battery, since these vary based on your installation choices. Most of that cost is the camera, internal battery, and the Pi. 
+## Cost
+
+Assuming you have the tools you'll need (soldering iron, wire strippers, a drill, etc.), the cost of the electronics should be on the order of $250. This does not include the birdhouse itself, any solar panels, or an external battery, since these vary based on your installation choices. Most of that cost is the camera, internal battery, and the Pi.
+
+All the materials required (other than the birdhouse itself) are listed in the BillOfMaterials.csv in this repo, along with links to where you can buy on Amazon.
+
+## Patience and Frustration
+
+If you are new to working on projects like this, it is essentially a law of nature that they won't work the first time. If something just works the very first time you hook it up, it is basically a miracle. Well, at least for my projects...
+
+The point is that you need to be patient and it is OK (even desireable?) to break things from time-to-time. In creating this project, I ran through two Pis, two UPS hats, three solar panels, one completely assembled circuit board that I spent hours soldering together, and numerous other connectors, wires, screws, etc. It's OK - it's to be expected and part of the creative process.
+
+If something isn't working and you get frustrated, just take a break. Chances are the answer will come to you the next morning. Also, ChatGPT has made debugging vastly easier - don't be shy about asking it why something is not working correctly. Point it to this repo, give it your error messages, and chances are it can lead you directly to the fix. What we're doing here isn't easy - it takes a huge attentiveness to detail, some serious focus, and multiple disparate skillsets. But if you are a beginning, just this one single project will teach you about electrical engineering, python, linux, soldering, woodworking, video, the command line, SSH, git, basic cryptography, web services, software development, solar design, power budgeting, and networking...without ever opening a textbook. So if you get frustrated, take a break and remember to have fun with the process! 
 
 ## 1. Raspberry Pi Configuration
 
@@ -86,11 +90,11 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 
 - Select **Raspberry Pi Zero 2 W** as your device.
 - Select the default full **Raspberry Pi OS (64-bit)** as your operating system. Testing with Lite and 32-bit systems did not yield meaningful power savings.
-- Select the correct place to write the image. Be very careful here. You do **not** want to overwrite your hard drive or anything important! Check that the size shown matches the size of your SD card.
+- Select the SD card as the place where the new image should be written. Be very careful here. You do **not** want to overwrite your hard drive or anything important! Check that the size shown matches the size of your SD card.
 - Name your NestCam something easy to remember - you will use this name to view it on your web browser.
 - Select your time zone and keyboard layout.
 - Enter a username and password that you would like to use for the Pi.
-- Enter the Wi-Fi network name and password that you would like the Pi to connect to. You can add additional networks later.
+- Enter the Wi-Fi network name and password that you would like the Pi to connect to. You can add additional networks later. In fact, if you are setting up the Pi using a wifi network different than the one it will be deployed on, you <em>need</em> to do this step or you will loose access to your Pi as soon as you switch networks!
 - Enable SSH. You can use either password or public-key authentication. Public-key authentication is more secure, but you will need to take an additional step. It is worth learning how to do this if you do not already know how, but if you are in a hurry, using a strong password is fine.
 - Disable Raspberry Pi Connect.
 - Double-check the selections and write the new image. This will take a minute or two.
@@ -152,14 +156,14 @@ The idea here is to use a UPS (Uninterruptible Power Supply) "hat" to the Raspbe
   <img src="images/hat.jpg" alt="Seengreat Pi Zero UPS HAT (B)" width="500">
 </p>
 
-<p align="center"><em>Seengreat Pi Zero UPS HAT (B) mounted on its battery.</em></p>
+<p align="center"><em>Seengreat Pi Zero UPS HAT (B) mounted on its battery. You will likely want to swap this small battery for a much larger 10,000 mAh option as detailed below.</em></p>
 
 The size of the battery here is up to you. The bigger the battery, the more time you have between solar charging or between external battery swaps. The downside is it will require a larger enclosure. In general, 10,000 mAh is a good choice. That is the size battery indicated in the Bill of Materials. Because the system should draw more or less 1.1W, that (in theory) should give you about 30 hours of runtime.
 
 <details>
 <summary><strong><em>Educational Background: What is a watt, amp, and volt?</em></strong></summary>
 
-> A **volt** is a measure of electrical potential difference. In plain English, it is the electrical “push” that drives charge through a circuit. An **amp** (or ampere) measures current, which is how much electric charge is flowing. A **watt** measures power, meaning how quickly electrical energy is being used.
+> A **volt** is a measure of electrical potential difference. In plain English, it is the amount of oomph behind each electron moving through the circuit. An **amp** (or ampere) measures current, which is how much electric charge is flowing. This is the number of electrons moving through the circuit. A **watt** measures power, meaning how quickly electrical energy is being used. So the more electrons running through the circuit, and the more oomph behind each one, the higher the power (watts).
 >
 > In simple direct-current systems like this one, the most useful relationship is:
 >
@@ -509,6 +513,7 @@ On the Pi, use your fingernail to carefully push both sides of the tiny black pl
 - If you are using the Waveshare camera, you additionally need to connect a wire to control the IR filter.
 -- If you are making your own JST connectors, cut a piece of orange wire long enough to reach from the camera to the Pi header pins. Strip both ends. Thread one end through the "GPIO" hole in the Waveshare camera, so that the wire comes out of the front of the board, on the same side as the camera. Solder this to the board. Connect a female socket to the other end and attach to Pin 18 of the Pi.
 -- If you are using pre-made jumper wires, put the pin of an orange wire through the "GPIO" hole in the Waveshare board so that the wire comes out of the front (camera-side) of the board. Solder this to the board. Connect the other end to Pin 18 of the Pi.
+- Finally, if you are using the Waveshare camera, be sure to make the software change indicated below in the "Waveshare IMX462 Configuration Change" section below.
 
 ### 3.2 Boot the Pi
 
