@@ -766,43 +766,43 @@ In order to edit this file, you will need to use sudo (since it is in the protec
 <details>
 <summary><strong><em>Educational Background: Editing Text With the Linux Command Line</em></strong></summary>
 
-When you connect to the Raspberry Pi over SSH, you do not get a graphical desktop by default. That means you usually edit files using a text editor that runs directly inside the terminal. This may feel old-fashioned at first, but it is actually one of the most practical ways to manage a small Linux device that is meant to sit in a birdhouse or enclosure rather than on a desk with its own monitor and keyboard.
-
-The simplest editor for most beginners is usually `nano`. To edit the NestCam configuration file, for example, you can run:
-
-```bash
-sudo nano /etc/nestcam/nestcam.env
-```
-
-In `nano`, you can move around with the arrow keys and simply type to add or change text. The command list is shown at the bottom of the screen. `Ctrl-O` means **write out**, which saves the file, and `Ctrl-X` exits the editor. If you try to exit after changing something, `nano` will ask whether you want to save first. That is why `nano` is a good first editor for a project like this: it is simple, direct, and hard to get trapped in.
-
-A few other shortcuts are especially useful. `Ctrl-W` searches for text, `Ctrl-K` cuts the current line, and `Ctrl-U` pastes it back. Those are enough for most small edits to configuration files. If you make a mistake, you can usually just reopen the file and correct it. For this project, that is often all you need in order to change values in `nestcam.env`, adjust camera settings, or update service configuration.
-
-You may also hear about `vim` or `vi`. These are powerful editors, but they have a steeper learning curve because they use different modes for typing text and issuing commands. They are worth learning eventually, but if your goal is just to get the NestCam running, `nano` is usually the easier place to start.
-
-If you want more background, start here:
-
-- [GNU nano documentation](https://www.nano-editor.org/docs.php)
-- [Ubuntu tutorial: Editing files from the terminal](https://documentation.ubuntu.com/server/how-to/console/editing-files-with-nano/)
-- [Vim documentation](https://www.vim.org/docs.php)
+> When you connect to the Raspberry Pi over SSH, you do not get a graphical desktop by default. That means you usually edit files using a text editor that runs directly inside the terminal. This may feel old-fashioned at first, but it is actually one of the most practical ways to manage a small Linux device that is meant to sit in a birdhouse or enclosure rather than on a desk with its own monitor and keyboard.
+>
+> The simplest editor for most beginners is usually `nano`. To edit the NestCam configuration file, for example, you can run:
+>
+> ```bash
+> sudo nano /etc/nestcam/nestcam.env
+> ```
+>
+> In `nano`, you can move around with the arrow keys and simply type to add or change text. The command list is shown at the bottom of the screen. `Ctrl-O` means **write out**, which saves the file, and `Ctrl-X` exits the editor. If you try to exit after changing something, `nano` will ask whether you want to save first. That is why `nano` is a good first editor for a project like this: it is simple, direct, and hard to get trapped in.
+>
+> A few other shortcuts are especially useful. `Ctrl-W` searches for text, `Ctrl-K` cuts the current line, and `Ctrl-U` pastes it back. Those are enough for most small edits to configuration files. If you make a mistake, you can usually just reopen the file and correct it. For this project, that is often all you need in order to change values in `nestcam.env`, adjust camera settings, or update service configuration.
+> 
+> You may also hear about `vim` or `vi`. These are powerful editors, but they have a steeper learning curve because they use different modes for typing text and issuing commands. They are worth learning eventually, but if your goal is just to get the NestCam running, `nano` is usually the easier place to start.
+> 
+> If you want more background, start here:
+>
+> - [GNU nano documentation](https://www.nano-editor.org/docs.php)
+> - [Ubuntu tutorial: Editing files from the terminal](https://documentation.ubuntu.com/server/how-to/console/editing-files-with-nano/)
+> - [Vim documentation](https://www.vim.org/docs.php)
 
 </details>
 
-> The main configuration file for the installed system is `/etc/nestcam/nestcam.env`. The installer copies a sample version of this file into place, and the daemon reads it at startup. After you make changes, restart the service with `sudo systemctl restart nestcam.service` so the new settings take effect.
->
-> The first group of settings controls how you reach the camera over your network. `LIVE_BIND` determines which network interfaces the web server listens on, and `LIVE_PORT` determines the port number, which is why the README uses an address such as `<NAME-OF-YOUR-PI>:8080`. Optional `AUTH_ENABLED`, `LIVE_USER`, and `LIVE_PASS` settings can add simple HTTP Basic Authentication if you want a login prompt on your local network.
->
-> The next group controls recording behavior and storage. `RECORDINGS_ROOT` chooses where video clips are saved. `RECORDING_ENABLED` lets you disable clip recording entirely while still using live view. `MIN_FREE_GB` is a safety setting: if free disk space falls below that amount, the daemon will refuse to start a new recording rather than filling the storage completely.
->
-> For image quality, the most important settings are `FPS`, `AE_ENABLE`, `EXPOSURE_TIME`, `ANALOGUE_GAIN`, and `SATURATION`. `FPS` sets the target frame rate. Lower frame rates can improve night performance because they allow longer exposures, but they also make motion look less smooth. `AE_ENABLE=1` leaves exposure and gain on automatic control, which is usually the best starting point. If you set `AE_ENABLE=0`, then `EXPOSURE_TIME` and `ANALOGUE_GAIN` become manual controls. Longer exposure makes the image brighter but increases motion blur, while higher analogue gain also brightens the image but adds noise and grain. `SATURATION` controls color intensity. For infrared-only night scenes, a value near `0.0` can be helpful because it produces a grayscale image, which often looks cleaner than distorted IR color.
->
-> The infrared light settings determine how strongly the birdhouse is illuminated at night. `IR_GPIO` identifies the Pi pin used to control the lights, and `IR_ACTIVE_HIGH` tells the software whether a high signal or a low signal turns the lights on. `IR_BRIGHTNESS` lets you dim the LEDs from `0.0` to `1.0`, which is useful if the scene is overexposed or if you want to save some power. `IR_PWM_FREQUENCY` controls the dimming frequency. In general, you should leave the pin assignment and polarity alone unless your wiring is different from the README, but brightness is a very useful tuning control.
->
-> The motion-detection settings are the main tools for reducing false triggers. `MOTION_GPIO_PIN` selects the GPIO pin connected to the PIR sensor. `MOTION_ACTIVE_HIGH` and `MOTION_PULL` must match the way the sensor is wired so the input does not float. `SAMPLE_HZ` controls how often the PIR sensor is checked. `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` says how many active readings in a row are required before motion is treated as real, and `MOTION_CLEAR_CONSECUTIVE_SAMPLES` says how many inactive readings are required before motion is treated as over. Increasing the trigger threshold usually reduces recordings of nothing, while keeping the clear threshold somewhat lower helps prevent rapid on-off flapping.
->
-> Three other motion settings shape the recorded clips. `MIN_CLIP_SECONDS` makes sure even a short motion event still produces a clip of usable length. `MOTION_COOLDOWN_SECONDS` keeps recording running briefly after motion stops so recordings do not end too abruptly when an animal pauses or moves intermittently. `MOTION_STARTUP_GRACE_SECONDS` ignores the PIR sensor for a short period after startup so the sensor has time to stabilize.
->
-> A good way to tune the system is to change only one or two variables at a time. For daytime image tuning, leave exposure on automatic first and test framing, focus, and general brightness. For night tuning, start by lowering `FPS`, then experiment with `SATURATION`, and only then move on to manual exposure and gain if needed. For motion tuning, begin by increasing `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` or `MOTION_COOLDOWN_SECONDS` before making more aggressive changes.
+The main configuration file for the installed system is `/etc/nestcam/nestcam.env`. The installer copies a sample version of this file into place, and the daemon reads it at startup. After you make changes, restart the service with `sudo systemctl restart nestcam.service` so the new settings take effect.
+
+The first group of settings controls how you reach the camera over your network. `LIVE_BIND` determines which network interfaces the web server listens on, and `LIVE_PORT` determines the port number, which is why the README uses an address such as `<NAME-OF-YOUR-PI>:8080`. Optional `AUTH_ENABLED`, `LIVE_USER`, and `LIVE_PASS` settings can add simple HTTP Basic Authentication if you want a login prompt on your local network.
+
+The next group controls recording behavior and storage. `RECORDINGS_ROOT` chooses where video clips are saved. `RECORDING_ENABLED` lets you disable clip recording entirely while still using live view. `MIN_FREE_GB` is a safety setting: if free disk space falls below that amount, the daemon will refuse to start a new recording rather than filling the storage completely.
+
+For image quality, the most important settings are `FPS`, `AE_ENABLE`, `EXPOSURE_TIME`, `ANALOGUE_GAIN`, and `SATURATION`. `FPS` sets the target frame rate. Lower frame rates can improve night performance because they allow longer exposures, but they also make motion look less smooth. `AE_ENABLE=1` leaves exposure and gain on automatic control, which is usually the best starting point. If you set `AE_ENABLE=0`, then `EXPOSURE_TIME` and `ANALOGUE_GAIN` become manual controls. Longer exposure makes the image brighter but increases motion blur, while higher analogue gain also brightens the image but adds noise and grain. `SATURATION` controls color intensity. For infrared-only night scenes, a value near `0.0` can be helpful because it produces a grayscale image, which often looks cleaner than distorted IR color.
+
+The infrared light settings determine how strongly the birdhouse is illuminated at night. `IR_GPIO` identifies the Pi pin used to control the lights, and `IR_ACTIVE_HIGH` tells the software whether a high signal or a low signal turns the lights on. `IR_BRIGHTNESS` lets you dim the LEDs from `0.0` to `1.0`, which is useful if the scene is overexposed or if you want to save some power. `IR_PWM_FREQUENCY` controls the dimming frequency. In general, you should leave the pin assignment and polarity alone unless your wiring is different from the README, but brightness is a very useful tuning control.
+
+The motion-detection settings are the main tools for reducing false triggers. `MOTION_GPIO_PIN` selects the GPIO pin connected to the PIR sensor. `MOTION_ACTIVE_HIGH` and `MOTION_PULL` must match the way the sensor is wired so the input does not float. `SAMPLE_HZ` controls how often the PIR sensor is checked. `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` says how many active readings in a row are required before motion is treated as real, and `MOTION_CLEAR_CONSECUTIVE_SAMPLES` says how many inactive readings are required before motion is treated as over. Increasing the trigger threshold usually reduces recordings of nothing, while keeping the clear threshold somewhat lower helps prevent rapid on-off flapping.
+
+Three other motion settings shape the recorded clips. `MIN_CLIP_SECONDS` makes sure even a short motion event still produces a clip of usable length. `MOTION_COOLDOWN_SECONDS` keeps recording running briefly after motion stops so recordings do not end too abruptly when an animal pauses or moves intermittently. `MOTION_STARTUP_GRACE_SECONDS` ignores the PIR sensor for a short period after startup so the sensor has time to stabilize.
+
+A good way to tune the system is to change only one or two variables at a time. For daytime image tuning, leave exposure on automatic first and test framing, focus, and general brightness. For night tuning, start by lowering `FPS`, then experiment with `SATURATION`, and only then move on to manual exposure and gain if needed. For motion tuning, begin by increasing `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` or `MOTION_COOLDOWN_SECONDS` before making more aggressive changes.
 
 ## 6. Camera Choice
 
