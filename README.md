@@ -46,6 +46,10 @@ The simplest power setup is just to plug it in. You can run an outdoor extension
 
 You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions.
 
+## Cost 
+
+Assuming you have the tools you'll need (soldering iron, wire strippers, a drill, etc.), the cost of the electronics should be on the order of $250. This does not include the birdhouse itself, any solar panels, or an external battery, since these vary based on your installation choices. Most of that cost is the camera, internal battery, and the Pi. 
+
 ## 1. Raspberry Pi Configuration
 
 ### 1.1 Download The Raspberry Pi Imager
@@ -988,3 +992,13 @@ Wait for the Pi activity LED to stop and for the system to fully power down befo
 - If you are using the UPS HAT, switch the HAT to **off** only after the Pi has shut down.
 
 Avoid just pulling power without shutting down first unless there is no other option, because that can corrupt the microSD card or damage files.
+
+## Solar Power Considerations
+
+If you have a site with a reasonable amount of sunlight, you should be able to power the entire platform with one or two solar panels. The UPS hat is limited to 5W solar charging, so unfortunately even if you have enough sun to generate much more than that, the speed at which you can recharge the batter is capped at this level.
+
+You can use the power_stats.py script to estimate the power draw of the unit - leave it running for a few minutes and test how streaming, recording, and using the infrared lights affects power draw. In my testing, it averaged at (very roughly speaking) 1.1W.
+
+So in order to have it solely powered by solar, you'll need to cover this as well as charge up the battery for cloudy periods and nighttime. You will also want to add a buffer. So that works out to maybe 40 watt-hours of solar energy per day that you'll need to keep the system running reliably.
+
+One future goal of the project is to improve both the power draw and the solar charging efficiency, so that is a focus of future development. This may require (i) migrating away from the UPS hat, since that is a big bottleneck for solar charging and (ii) migrating away from using the Pi entirely in favor of something lower powered.
