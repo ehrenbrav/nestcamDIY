@@ -444,8 +444,6 @@ Use this Raspberry Pi Zero 2 W pinout image for reference. Be very careful here,
   <img src="images/raspberry-pi-pinout.jpg" alt="Raspberry Pi Zero pinout diagram" width="900">
 </p>
 
-<p align="center"><em>Pinout reference for the Raspberry Pi Zero. Double-check pin numbers before making any connections.</em></p>
-
 Make the following connections:
 
 - Connect the yellow `3.3V` power supply for the motion detector to **Pin 1**.
@@ -469,6 +467,7 @@ Pin 6   (GND)    -> Black  -> Motion detector - pin
 Pin 12  (GPIO18) -> Blue   -> MOSFET + control pin
 Pin 14  (GND)    -> Black  -> MOSFET - control pin
 Pin 16  (GPIO23) -> Green  -> Motion detector signal pin (unconnected for testing)
+Pin 18  (GPIO24) -> Orange  -> (Optional) IR filter enable/disable on Waveshare camera
 Pin 20  (GND)    -> Black  -> MOSFET power supply - screw terminal (power supply side)
 ```
 
@@ -896,3 +895,5 @@ sudo nmcli connection delete "YOUR-SSID"
 ```
 
 A good practical approach is to add both your setup network and your final deployment network before you ever move the unit. That way, you can still reach the Pi in either location without having to take the enclosure apart or connect a monitor and keyboard.
+
+**TODO** Updating and Powering Off the Pi
