@@ -866,10 +866,10 @@ A good way to tune the system is to change only one or two variables at a time. 
 
 ## 6. Camera Choice
 
-At this point, there are two camera options that make the most sense for this project:
+There are two camera options that make the most sense for this project, both listed in the Bill of Materials:
 
-- the **Arducam for Raspberry Pi Camera Module 3, 12MP IMX708 75° Autofocus NoIR Pi Camera V3**
-- the **Waveshare IMX462 2MP IR-CUT Camera**
+- The **Arducam for Raspberry Pi Camera Module 3, 12MP IMX708 75° Autofocus NoIR Pi Camera V3**
+- The **Waveshare IMX462 2MP IR-CUT Camera**
 
 Both can work well with NestCamDIY because the infrared illumination in this project comes from **separate external IR LEDs** that are controlled by the Pi. That matters because it avoids a major power-budget problem seen on some other camera boards: built-in IR lights that switch on automatically and draw power whether you want them or not. With the two cameras discussed here, the IR lighting is under your control.
 
@@ -877,13 +877,13 @@ Both can work well with NestCamDIY because the infrared illumination in this pro
 
 This is the simpler and more mainstream option. It offers much higher resolution than the Waveshare, autofocus, and a camera family that is already very familiar in the Raspberry Pi ecosystem. If you want the easiest path to a working image, the option to crop later, or the flexibility of autofocus in a small enclosure where camera placement may not be perfect, this is a strong choice.
 
-The main drawback is that it is a **NoIR** camera, meaning it does not have an infrared-blocking filter. That makes it excellent for low-light and infrared use, but it also means daylight colors are less accurate. Under normal visible light, foliage and feathers can take on odd pinkish or purplish tones because the sensor is also seeing infrared that a normal daylight camera would block. If your main goal is simply to observe behavior and get a reliable image day and night, this may be perfectly acceptable. If you care a lot about natural-looking daytime plumage and nest appearance, it is a real downside.
+The main drawback is that it is a **NoIR** camera, meaning it does not have an infrared-blocking filter. That makes it excellent for low-light and infrared use, but it also means daylight colors are less accurate. Under normal visible light, everything can take on odd pinkish or purplish tones because the sensor is also seeing infrared that a normal daylight camera would block. If your main goal is simply to observe behavior and get a reliable image day and night, this may be perfectly acceptable. If you care a lot about natural-looking daytime plumage and nest appearance, it is a real downside.
 
 ### Waveshare IMX462 IR-CUT Camera
 
-The Waveshare is the more specialized day-and-night option. It is a lower-resolution camera, but the IMX462 sensor is designed for strong low-light performance, and the board includes an **IR-cut filter** that can be switched for daytime or nighttime use. In practice, that means it can preserve more normal-looking daytime color while still working well with external infrared illumination at night.
+The Waveshare is the more specialized day-and-night option. It is a lower-resolution camera, but the IMX462 sensor is designed for strong low-light performance, and the board includes an **IR-cut filter** that can be switched for daytime or nighttime use. That's why we attach a separate control wire when using this camera. In practice, that means it can preserve more normal-looking daytime color while still working well with external infrared illumination at night, so you get the best of both worlds.
 
-The main tradeoffs are lower resolution, fixed focus rather than autofocus, and a somewhat more custom setup. The Pi may not auto-detect it without a configuration change, and if you want the system to switch the IR-cut filter automatically you may need to wire the filter-control pad to a GPIO and enable the matching software support. So while the Waveshare is a very good fit for the actual imaging problem in a birdhouse, it can require a bit more setup effort.
+The main tradeoffs are lower resolution, fixed focus rather than autofocus, and a somewhat more custom setup. The Pi probably will not auto-detect it without a configuration change (see below), and you will need to wire up the IR-cut control to a GPIO and enable the matching software support. So while the Waveshare is a very good fit for the actual imaging problem in a birdhouse, it can require a bit more setup effort.
 
 ### How to Choose
 
@@ -905,8 +905,6 @@ Choose the **Arducam IMX708 NoIR** if:
 
 In other words, the Arducam is the easier and more flexible general-purpose camera, while the Waveshare is the better fit if you care more about correct daytime color and cleaner switching between normal daylight viewing and infrared night viewing.
 
-A final point on power: because both of these options use **external IR LEDs** rather than built-in camera-mounted illuminators, both can fit a low-power NestCamDIY build. The key difference is not power draw from the camera itself, but whether you want the simplicity of the Arducam NoIR path or the better daytime color of the Waveshare IR-cut path.
-
 ### Waveshare IMX462 Configuration Change
 
 With the Waveshare camera, you need to make the following changes to the configuration files for it to work.
@@ -923,39 +921,25 @@ Then save the file and reboot. Otherwise, the Pi will not automatically detect t
 If you are building your system using a wifi network other than the one it will be deployed on, you'll absolutely need to add the additional wifi network to the Pi. Otherwise, you won't be able to access the Pi once you remove it from the wifi network you used to set it up!
 Add the extra network or networks before you deploy the camera somewhere else. On current Raspberry Pi OS releases, Wi-Fi is managed by NetworkManager, so the easiest way to do this is with `nmcli` over SSH.
 
-First, see what networks are visible:
+To add a normal password-protected network:
 
-```bash
-sudo nmcli dev wifi list
 ```
-
-Then add a normal password-protected network:
-
-```bash
 sudo nmcli dev wifi connect "YOUR-SSID" password "YOUR-WIFI-PASSWORD"
-```
-
-If the network is hidden, use:
-
-```bash
-sudo nmcli --ask dev wifi connect "YOUR-SSID" hidden yes
 ```
 
 Repeat that for every network you want the Pi to remember. Once added, the connection is saved, so the Pi should reconnect automatically whenever it sees that network again.
 
 To check what saved connections already exist, run:
 
-```bash
+```
 nmcli connection show
 ```
 
 If you accidentally entered something incorrectly, you can remove a saved Wi-Fi connection with:
 
-```bash
+```
 sudo nmcli connection delete "YOUR-SSID"
 ```
-
-A good practical approach is to add both your setup network and your final deployment network before you ever move the unit. That way, you can still reach the Pi in either location without having to take the enclosure apart or connect a monitor and keyboard.
 
 ## Updating the Software and Pi
 
@@ -965,33 +949,33 @@ The NestCamDIY is intended to stay running continuously. In normal use, you shou
 
 Connect to the Pi over SSH and go to the project directory:
 
-```bash
+```
 cd ~/NestCamDIY
 ```
 
 Then pull down the latest version of the repository:
 
-```bash
+```
 git pull
 ```
 
 After that, run the installer again:
 
-```bash
+```
 sudo python setup.py
 ```
 
-This is important because `setup.py` does more than just install Python code. It also updates the files that are copied into system locations, such as the daemon, service files, web files, and configuration templates.
+This is important because `setup.py` does more than just install Python code. It also updates the files that are copied into system locations, such as the daemon, service files, web files, and configuration templates. Note that this will not overwrite your own nestcam.env file, so whatever custom settings you have will be preserved.
 
 Once it finishes, restart the main service:
 
-```bash
+```
 sudo systemctl restart nestcam.service
 ```
 
 If you want to confirm that it came back up cleanly, run:
 
-```bash
+```
 sudo systemctl status nestcam.service
 ```
 
@@ -999,7 +983,7 @@ sudo systemctl status nestcam.service
 
 To update the operating system packages on the Pi, run:
 
-```bash
+```
 sudo apt update
 sudo apt full-upgrade
 ```
@@ -1018,13 +1002,15 @@ sudo systemctl status nestcam.service
 
 If you updated both the operating system and the NestCamDIY repository, it is a good idea to run `sudo python setup.py` again after major system changes, especially if camera-related packages or service files may have changed.
 
+As always, check to see you can stream video using your browser.
+
 ## Powering off the Pi
 
 This system is meant to stay powered on continuously, so you should not normally shut it down after everyday use. A shutdown is mainly for long-term storage, major hardware changes, or moving the unit somewhere that it will be disconnected from power.
 
 To shut it down cleanly, connect over SSH and run:
 
-```bash
+```
 sudo shutdown -h now
 ```
 
