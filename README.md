@@ -46,6 +46,18 @@ Assuming you have the tools you'll need (soldering iron, wire strippers, a drill
 
 All the materials required (other than the birdhouse itself) are listed in the BillOfMaterials.csv in this repo, along with links to where you can buy on Amazon.
 
+## Option: Dispense with Night Vision and/or Motion Detection Entirely
+
+If you really want to simplify (and reduce costs), you can eliminate the night vision capabilities and/or the record-on-motion feature.
+
+### Building Without Infrared
+
+If your birdhouse gets enough natural light and you don't care about viewing at night, you can absolutely just setup a much simpler daytime system. Just do not build the infrared LED system and do not get the MOSFET board. You will want to use the excellent standard Raspberry Pi camera that includes an IR filter: the Camera Module 3. This is the same thing as the Arducam version, except it includes a permanent IR filter, so you will get really nice daytime colors. This is an excellent alternative and will also save you some power, as you don't need to use the infrared LEDs.
+
+## Building Without Motion Recording
+
+If you don't care about recording anything and just viewing the nestcam in realtime, simply don't get the motion detection board and don't build any of the motion detection hardware. You will need to set `RECORDING_ENABLED=0` in /etc/nestcam/nestcam.env using `sudo nano /etc/nestcam/nestcam.env` to disable recording. Otherwise, it should work just fine. 
+
 ## Patience and Frustration
 
 If you are new to working on projects like this, it is essentially a law of nature that they won't work the first time. Honestly, if something works the very first time you hook it up, it is basically a miracle. Well, at least for my projects...
@@ -811,7 +823,7 @@ You should also look at the Configuration section below - there are numerous val
 
 ### 4.11 Secure the LEDs and Motion Sensor
 
-Once you are happy with the lighting and motion detection, permenantly secure the LEDs and motion sensor using hot glue. You will ideally not have anything bulging out of the roof of the birdhouse other than the wires themselves, so you can route these flat along the roof and into the enclosure. I use Gorilla Tape to weatherproof the LEDs, motion sensor, and wires, but you could also use a waterproof sealant, heat-shrink wrap or something else. I like having the wires running flat over the roof and down a corner of the birdbox into the enclosure.
+Once you are happy with the lighting and motion detection, permenantly secure the LEDs and motion sensor using hot glue. You may also need to put a bit of hot glue on the cap of the motion sensor - the top kept falling off on mine. You will ideally not have anything bulging out of the roof of the birdhouse other than the wires themselves, so you can route these flat along the roof and into the enclosure. I use Gorilla Tape to weatherproof the LEDs, motion sensor, and wires, but you could also use a waterproof sealant, heat-shrink wrap or something else. I like having the wires running flat over the roof and down a corner of the birdbox into the enclosure.
 
 ### 4.12 Seal the Enclosure
 
