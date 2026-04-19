@@ -132,7 +132,8 @@ The idea here is to use a UPS (Uninterruptible Power Supply) "hat" to the Raspbe
 
 The size of the battery here is up to you. The bigger the battery, the more time you have between solar charging or between external battery swaps. The downside is it will require a larger enclosure. In general, 10,000 mAh is a good choice. That is the size battery indicated in the Bill of Materials. Because the system should draw more or less 1.1W, that (in theory) should give you about 30 hours of runtime.
 
-Educational Background: What is a watt, amp, and volt?
+<details>
+<summary><strong><em>Educational Background: What is a watt, amp, and volt?</em></strong></summary>
 
 > A **volt** is a measure of electrical potential difference. In plain English, it is the electrical “push” that drives charge through a circuit. An **amp** (or ampere) measures current, which is how much electric charge is flowing. A **watt** measures power, meaning how quickly electrical energy is being used.
 >
@@ -151,6 +152,8 @@ Educational Background: What is a watt, amp, and volt?
 > - [NIST: SI Units – Electric Current](https://www.nist.gov/pml/owm/si-units-electric-current)
 > - [NIST: Ampere Introduction](https://www.nist.gov/si-redefinition/ampere-introduction)
 > - [Watt on Wikipedia](https://en.wikipedia.org/wiki/Watt)
+
+</details>
 
 - Make sure the pogo pins on the HAT make good, clean contact with the bottom of the header pins on the Pi.
 - Make sure the power switch is in the **off** position.
@@ -182,7 +185,7 @@ Once your computer's terminal utility is working and you are connected to the sa
 ssh <NAME-OF-YOUR-PI>
 ```
 
-This is the name you selected when you wrote the SD card, not your Wi-Fi network name or your username.
+This is the name you selected when you wrote the SD card, not your Wi-Fi network name or your username. Do not type the "<>" characters - just the plain name of your Pi.
 
 <details>
 <summary><strong><em>Educational Background: What are a terminal and SSH?</em></strong></summary>
@@ -240,13 +243,16 @@ Once you have SSH access to the Pi:
    sudo shutdown -h now
    ```
 
-Educational Background: What is sudo?
+<details>
+<summary><strong><em>Educational Background: What is sudo?</em></strong></summary>
 
 > `sudo` is a Linux command that means **"run this command as another user,"** and in everyday use that almost always means **run it as the superuser, or `root`.** The root account has permission to change system files, install software, manage services, write into protected directories, and shut the machine down. A normal user account usually cannot do those things directly.
 >
 > That is why this guide uses `sudo` for commands such as `sudo python setup.py` and `sudo shutdown -h now`. The setup script needs elevated privileges because it installs packages, writes configuration files into system locations, and registers background services so the NestCam can start automatically when the Pi boots. Shutting the system down also requires permission to control the operating system itself.
 >
 > You should use `sudo` carefully. It is useful because it lets you administer the Pi without logging in as root all the time, but it also means the command can make major changes if you type something incorrectly. In this project, that mostly means using it only for installation, service management, and other system-level tasks.
+
+</details>
 
 8. If you are using a UPS HAT, switch the on/off switch to **off** once the Pi LED shows the Pi is off. If you are using a wired setup, simply unplug the power supply once the LED turns off.
 
@@ -674,20 +680,23 @@ sudo systemctl status nestcam
 
 If you see error messages here, something isn't working properly. The easiest way to debug this is, again, using ChatGPT. You can tell it too review the repository code, paste in the error message, and it should help you figure out what is going on. There are numerous reasons why it might not work: cameras that aren't automatically detected by the Pi, firewall settings, hardware faults, etc.
 
-Educational Background: What exactly is a URL and port?
+<details>
+<summary><strong><em>Educational Background: What exactly is a URL and port?</em></strong></summary>
 
-A URL is the address you type into a browser to reach something on a network. In everyday use, people often think of it as the web address. In this project, when you type something like `http://nestcam:8080`, the `nestcam` part is the name of the Raspberry Pi on your local network, and the rest tells your browser how to connect to the web service running on it.
+> A URL is the address you type into a browser to reach something on a network. In everyday use, people often think of it as the web address. In this project, when you type something like `http://nestcam:8080`, the `nestcam` part is the name of the Raspberry Pi on your local network, and the rest tells your browser how to connect to the web service running on it.
+>
+> A port is like a numbered doorway on that device. A single computer can run many network services at the same time, and the port number tells incoming traffic which one you want. For example, web traffic often uses port 80 by default, but the NestCamDIY software is configured to serve its web interface on port 8080, so you need to include `:8080` in the address unless you changed the configuration.
+>
+> That is why the README tells you to browse to `<NAME-OF-YOUR-PI>:8080`. You are not just identifying the Pi itself; you are also identifying the specific service on the Pi that provides the stream and status page. If you leave off the port, your browser will usually assume a default one instead, and it may fail to connect to the NestCam service.
+>
+> If you want more background, start here:
+>
+> - [URL on Wikipedia](https://en.wikipedia.org/wiki/URL)
+> - [Port (computer networking) on Wikipedia](https://en.wikipedia.org/wiki/Port_(computer_networking))
+> - [MDN Web Docs: What is a URL?](https://developer.mozilla.org/en-US/docs/Learn_web_development/Howto/Web_mechanics/What_is_a_URL)
+> - [Cloudflare Learning Center: What is a network port?](https://www.cloudflare.com/learning/network-layer/what-is-a-computer-port/)
 
-A port is like a numbered doorway on that device. A single computer can run many network services at the same time, and the port number tells incoming traffic which one you want. For example, web traffic often uses port 80 by default, but the NestCamDIY software is configured to serve its web interface on port 8080, so you need to include `:8080` in the address unless you changed the configuration.
-
-That is why the README tells you to browse to `<NAME-OF-YOUR-PI>:8080`. You are not just identifying the Pi itself; you are also identifying the specific service on the Pi that provides the stream and status page. If you leave off the port, your browser will usually assume a default one instead, and it may fail to connect to the NestCam service.
-
-If you want more background, start here:
-
-- [URL on Wikipedia](https://en.wikipedia.org/wiki/URL)
-- [Port (computer networking) on Wikipedia](https://en.wikipedia.org/wiki/Port_(computer_networking))
-- [MDN Web Docs: What is a URL?](https://developer.mozilla.org/en-US/docs/Learn_web_development/Howto/Web_mechanics/What_is_a_URL)
-- [Cloudflare Learning Center: What is a network port?](https://www.cloudflare.com/learning/network-layer/what-is-a-computer-port/)
+</details>
 
 Once the streaming is working, make any adjustments to the camera to get the image right and test both with natural light and complete darkness (by puting a towel or something over the entire thing). The infrared LEDs should illuminate any time the camera is streaming or recording, so you should be able to see the interior of the birdhouse clearly even in complete darkness. Experiment with putting the LEDs lower or higher in the interior to get the best lighting. Also test the motion detection:
 
@@ -711,7 +720,8 @@ There are a number of settings you will need to modify, or may want to modify, t
 
 In order to edit this file, you will need to use sudo (since it is in the protected /etc directory). If you don't know how to use a text editor using the command line and SSH, read some details below.
 
-Educational Background: Editing Text With the Linux Command Line
+<details>
+<summary><strong><em>Educational Background: Editing Text With the Linux Command Line</em></strong></summary>
 
 > When you connect to the Raspberry Pi over SSH, you do not get a graphical desktop by default. That means you usually edit files using a text editor that runs directly inside the terminal. This may feel old-fashioned at first, but it is actually one of the most practical ways to manage a small Linux device that is meant to sit in a birdhouse or enclosure rather than on a desk with its own monitor and keyboard.
 >
@@ -732,6 +742,8 @@ Educational Background: Editing Text With the Linux Command Line
 > - [GNU nano documentation](https://www.nano-editor.org/docs.php)
 > - [Ubuntu tutorial: Editing files from the terminal](https://documentation.ubuntu.com/server/how-to/console/editing-files-with-nano/)
 > - [Vim documentation](https://www.vim.org/docs.php)
+
+</details>
 
 > The main configuration file for the installed system is `/etc/nestcam/nestcam.env`. The installer copies a sample version of this file into place, and the daemon reads it at startup. After you make changes, restart the service with `sudo systemctl restart nestcam.service` so the new settings take effect.
 >
