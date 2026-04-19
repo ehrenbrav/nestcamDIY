@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="images/logo.png" alt="NestCamDIY logo" width="240">
+  <img src="images/logo.png" alt="NestCamDIY logo" width="300">
 </p>
 
 <p align="left">
