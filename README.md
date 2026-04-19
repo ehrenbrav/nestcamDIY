@@ -76,8 +76,6 @@ You will need to insert a new micro-SD card into your computer using an SD card 
   <img src="images/raspberry-pi-zero.webp" alt="Raspberry Pi Zero 2 W" width="500">
 </p>
 
-<p align="center"><em>The Raspberry Pi Zero 2 W used as the core computer in this project.</em></p>
-
 ### 1.2 Install Raspberry Pi OS
 
 Install Raspberry Pi OS on your SD card following the instructions provided by the imager, using the options selected below:
@@ -103,6 +101,22 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 >
 > The important thing is that the private key must stay private. If someone gets a copy of it, they may be able to log in as you. That is why people often protect their private key with a passphrase and keep backups carefully. For a small home project this may sound formal, but it is a good habit and well worth learning.
 >
+> To create a key pair on your own computer, open a terminal and run:
+>
+> ```bash
+> ssh-keygen -t ed25519 -C "your_email@example.com"
+> ```
+>
+> Press Enter to accept the default save location unless you already use a different SSH key setup and know you want something else. You can then choose a passphrase or leave it blank. This will usually create a private key at `~/.ssh/id_ed25519` and a public key at `~/.ssh/id_ed25519.pub`.
+>
+> To display the public key so you can copy it, run:
+>
+> ```bash
+> cat ~/.ssh/id_ed25519.pub
+> ```
+>
+> Copy the contents of that `.pub` file into Raspberry Pi Imager when it asks for your public key, or later place it into the Pi user's `~/.ssh/authorized_keys` file.
+>
 > If you want more background, start here:
 >
 > - [Public-key cryptography on Wikipedia](https://en.wikipedia.org/wiki/Public-key_cryptography)
@@ -113,7 +127,7 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 
 ### 1.3 Install the Heat Sink and Header Pins
 
-Note that you can buy a Pi with the header pins and heat sink already installed. If you don't want to bother with soldering, you should go this route. Otherwise, read on.
+<em>Note that you can buy a Pi with the header pins and heat sink already installed. If you don't want to bother with soldering, you should go this route. Otherwise, read on.</em>
 
 Put the adhesive heat sink that comes with the Raspberry Pi onto the black processor chip, not the silver-colored metal box, which is the Wi-Fi chip.
 
@@ -124,11 +138,17 @@ Next, solder header pins onto the Raspberry Pi.
 - The plastic pieces of the pins should be on the top of the board.
 - Inspect afterward for solder bridges or bad solder joints.
 
-Be careful to ensure the solder joints are solid, since bad soldering can lead to major debugging headaches later. Again, if you do not want to mess with this, you can buy a pre-soldered version of the Pi.
+Be careful to ensure the solder joints are solid, since bad soldering can lead to major debugging headaches later. <em>Again, if you do not want to mess with this, you can buy a pre-soldered version of the Pi.</em>
 
-### 1.3A Solar and Battery Only: Install the UPS HAT
+### 1.3A <em>Solar and Battery Only: Install the UPS HAT</em>
 
 The idea here is to use a UPS (Uninterruptible Power Supply) "hat" to the Raspberry Pi. This provides the Pi with both an interface for accepting solar power and also its own battery supply so you don't need to shut it down while switching your external batteries or when your solar panels are not generating enough power (such as during night). Attach the UPS hat using the standoff screws.
+
+<p align="center">
+  <img src="images/hat.jpg" alt="Seengreat Pi Zero UPS HAT (B)" width="500">
+</p>
+
+<p align="center"><em>Seengreat Pi Zero UPS HAT (B) mounted on its battery.</em></p>
 
 The size of the battery here is up to you. The bigger the battery, the more time you have between solar charging or between external battery swaps. The downside is it will require a larger enclosure. In general, 10,000 mAh is a good choice. That is the size battery indicated in the Bill of Materials. Because the system should draw more or less 1.1W, that (in theory) should give you about 30 hours of runtime.
 
@@ -216,6 +236,29 @@ Once you have SSH access to the Pi:
    ```bash
    sudo apt install git
    ```
+
+<details>
+<summary><strong><em>Educational Background: What is git?</em></strong></summary>
+
+> Git is a version-control system. It keeps track of changes to files over time, which makes it possible to download a project, see what has been changed, update it later, and collaborate without passing around loose copies of files. In a project like NestCamDIY, that matters because the software consists of many related files that need to stay in sync: Python scripts, service files, web files, test scripts, and configuration examples.
+>
+> When you run:
+>
+> ```bash
+> git clone https://github.com/ehrenbrav/NestCamDIY
+> ```
+>
+> you are telling Git to copy the entire repository from GitHub onto your Raspberry Pi. That gives you the project directory exactly as it is stored in the repository, including the installer, the daemon, the test scripts, and the example configuration files. Once it is cloned, you can move into that directory with `cd NestCamDIY` and run the installer from there.
+>
+> Git is also useful later if the project changes. You can return to the repository directory and use Git to inspect the current status, compare changes, or pull down updates from GitHub. For a beginner, though, the most important idea here is simple: Git is the tool that downloads the software project in an organized way instead of making you manually copy a bunch of individual files.
+>
+> If you want more background, start here:
+>
+> - [Git documentation](https://git-scm.com/doc)
+> - [Git on Wikipedia](https://en.wikipedia.org/wiki/Git)
+> - [GitHub Docs: About repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/about-repositories)
+
+</details>
 
 4. Clone the NestCamDIY repository:
 
@@ -324,18 +367,18 @@ For all three pigtails:
    <details>
    <summary><strong><em>Educational Background: Why do we use a resistor here, and why 680 ohms?</em></strong></summary>
 
-> A resistor limits how much current flows through the LED. LEDs are not like ordinary pieces of wire: once they begin conducting, the current can rise very quickly if nothing in the circuit limits it. Without a resistor, you can easily overdrive the LED, shorten its life, or burn it out almost immediately.
->
-> The reason you pick a resistor value at all is basic circuit math. The supply voltage is higher than the LED's forward voltage, so the extra voltage has to be dropped somewhere. The resistor provides that drop and sets the current to a safe level according to Ohm's law. That is why almost every simple LED circuit includes one.
->
-> A value around 680 ohms is a conservative, beginner-friendly choice for a simple test LED pigtail like this. It keeps current low, reduces the chance of damaging parts, and is still bright enough for testing. It is not the only value that would work, but it is a safe and practical choice when the goal is reliability rather than squeezing out maximum brightness.
->
-> If you want more background, start here:
->
-> - [Resistor on Wikipedia](https://en.wikipedia.org/wiki/Resistor)
-> - [Ohm's law on Wikipedia](https://en.wikipedia.org/wiki/Ohm%27s_law)
-> - [SparkFun: Light-Emitting Diodes (LEDs)](https://learn.sparkfun.com/tutorials/light-emitting-diodes-leds/all)
-> - [Adafruit: Revisiting Resistors](https://learn.adafruit.com/all-about-leds/revisiting-resistors)
+   > A resistor limits how much current flows through the LED. LEDs are not like ordinary pieces of wire: once they begin conducting, the current can rise very quickly if nothing in the circuit limits it. Without a resistor, you can easily overdrive the LED, shorten its life, or burn it out almost immediately.
+   >
+   > The reason you pick a resistor value at all is basic circuit math. The supply voltage is higher than the LED's forward voltage, so the extra voltage has to be dropped somewhere. The resistor provides that drop and sets the current to a safe level according to Ohm's law. That is why almost every simple LED circuit includes one.
+   >
+   > A value around 680 ohms is a conservative, beginner-friendly choice for a simple test LED pigtail like this. It keeps current low, reduces the chance of damaging parts, and is still bright enough for testing. It is not the only value that would work, but it is a safe and practical choice when the goal is reliability rather than squeezing out maximum brightness.
+   >
+   > If you want more background, start here:
+   >
+   > - [Resistor on Wikipedia](https://en.wikipedia.org/wiki/Resistor)
+   > - [Ohm's law on Wikipedia](https://en.wikipedia.org/wiki/Ohm%27s_law)
+   > - [SparkFun: Light-Emitting Diodes (LEDs)](https://learn.sparkfun.com/tutorials/light-emitting-diodes-leds/all)
+   > - [Adafruit: Revisiting Resistors](https://learn.adafruit.com/all-about-leds/revisiting-resistors)
 
    </details>
 
@@ -431,7 +474,7 @@ Pin 20  (GND)    -> Black  -> MOSFET power supply - screw terminal (power supply
 
 The red and black LED wires should be attached to the `+` and `-` screw terminals, respectively, on the load side of the MOSFET board.
 
-### 2.4A Solar Setups Only: Create a Solar Power Cable
+### 2.4A <em>Solar Setups Only: Create a Solar Power Cable</em>
 
 For solar setups, create a solar power cable.
 
@@ -512,7 +555,7 @@ If either test fails, something is wrong. Most likely:
 Next, run the motion sensor test:
 
 ```bash
-./test_motion_detector.py
+./test_motion.py
 ```
 
 Wave your hand in front of the motion sensor. The LED should light up. If you stay still, the LED should go out again. Once you have verified that it works, hit `Ctrl-C` to stop the test.
@@ -545,7 +588,7 @@ Run:
 
 If the test fails, check the ribbon cable connection, especially that it is securely attached on each end and that the metal contacts are facing into each board.
 
-### 3.4A Solar and Battery Setups: Test the UPS HAT
+### 3.4A <em>Solar and Battery Setups: Test the UPS HAT</em>
 
 If you are using a UPS HAT, run:
 
@@ -723,25 +766,25 @@ In order to edit this file, you will need to use sudo (since it is in the protec
 <details>
 <summary><strong><em>Educational Background: Editing Text With the Linux Command Line</em></strong></summary>
 
-> When you connect to the Raspberry Pi over SSH, you do not get a graphical desktop by default. That means you usually edit files using a text editor that runs directly inside the terminal. This may feel old-fashioned at first, but it is actually one of the most practical ways to manage a small Linux device that is meant to sit in a birdhouse or enclosure rather than on a desk with its own monitor and keyboard.
->
-> The simplest editor for most beginners is usually `nano`. To edit the NestCam configuration file, for example, you can run:
->
-> ```bash
-> sudo nano /etc/nestcam/nestcam.env
-> ```
->
-> In `nano`, you can move around with the arrow keys and simply type to add or change text. The command list is shown at the bottom of the screen. `Ctrl-O` means **write out**, which saves the file, and `Ctrl-X` exits the editor. If you try to exit after changing something, `nano` will ask whether you want to save first. That is why `nano` is a good first editor for a project like this: it is simple, direct, and hard to get trapped in.
->
-> A few other shortcuts are especially useful. `Ctrl-W` searches for text, `Ctrl-K` cuts the current line, and `Ctrl-U` pastes it back. Those are enough for most small edits to configuration files. If you make a mistake, you can usually just reopen the file and correct it. For this project, that is often all you need in order to change values in `nestcam.env`, adjust camera settings, or update service configuration.
->
-> You may also hear about `vim` or `vi`. These are powerful editors, but they have a steeper learning curve because they use different modes for typing text and issuing commands. They are worth learning eventually, but if your goal is just to get the NestCam running, `nano` is usually the easier place to start.
->
-> If you want more background, start here:
->
-> - [GNU nano documentation](https://www.nano-editor.org/docs.php)
-> - [Ubuntu tutorial: Editing files from the terminal](https://documentation.ubuntu.com/server/how-to/console/editing-files-with-nano/)
-> - [Vim documentation](https://www.vim.org/docs.php)
+When you connect to the Raspberry Pi over SSH, you do not get a graphical desktop by default. That means you usually edit files using a text editor that runs directly inside the terminal. This may feel old-fashioned at first, but it is actually one of the most practical ways to manage a small Linux device that is meant to sit in a birdhouse or enclosure rather than on a desk with its own monitor and keyboard.
+
+The simplest editor for most beginners is usually `nano`. To edit the NestCam configuration file, for example, you can run:
+
+```bash
+sudo nano /etc/nestcam/nestcam.env
+```
+
+In `nano`, you can move around with the arrow keys and simply type to add or change text. The command list is shown at the bottom of the screen. `Ctrl-O` means **write out**, which saves the file, and `Ctrl-X` exits the editor. If you try to exit after changing something, `nano` will ask whether you want to save first. That is why `nano` is a good first editor for a project like this: it is simple, direct, and hard to get trapped in.
+
+A few other shortcuts are especially useful. `Ctrl-W` searches for text, `Ctrl-K` cuts the current line, and `Ctrl-U` pastes it back. Those are enough for most small edits to configuration files. If you make a mistake, you can usually just reopen the file and correct it. For this project, that is often all you need in order to change values in `nestcam.env`, adjust camera settings, or update service configuration.
+
+You may also hear about `vim` or `vi`. These are powerful editors, but they have a steeper learning curve because they use different modes for typing text and issuing commands. They are worth learning eventually, but if your goal is just to get the NestCam running, `nano` is usually the easier place to start.
+
+If you want more background, start here:
+
+- [GNU nano documentation](https://www.nano-editor.org/docs.php)
+- [Ubuntu tutorial: Editing files from the terminal](https://documentation.ubuntu.com/server/how-to/console/editing-files-with-nano/)
+- [Vim documentation](https://www.vim.org/docs.php)
 
 </details>
 
@@ -776,10 +819,10 @@ This camera is specifically marketed as working well in low light while also sup
 Both should work.
 
 The Arducam IMX708 option gives you much higher resolution, autofocus, and broad software familiarity because it is built around the same Sony IMX708 family used in Raspberry Pi Camera Module 3 products. That makes it a good choice if you want flexibility in framing, the option to crop the image later, or if you expect the camera distance to change and want autofocus to handle that automatically. The tradeoff is that this extra resolution is not always necessary for a birdhouse stream, and autofocus can be one more variable to manage in a fixed installation. Because the NoIR version does not use an IR-cut filter, it is also not ideal if faithful daytime color is important. 
->
->The Waveshare IMX462 is in some ways the more specialized camera for this project. Its Sony IMX462 sensor is designed for strong low-light and near-infrared performance, and the board includes an IR-cut mechanism so daytime color is more normal while still working well with IR illumination at night. It is also only a 1080p camera, which can actually be an advantage here because it is simpler and more in line with what the Pi Zero 2 W needs for a small streaming appliance. The tradeoffs are that you give up the extra detail of a 12MP sensor, the lens is fixed-focus rather than autofocus, and setup can take a little more tinkering because the Pi may not auto-detect it without the configuration change described below.
->
->In practical terms, choose the Arducam if you want the easier mainstream camera path and value higher resolution and autofocus more than accurate daytime color. Choose the Waveshare if your priority is reliable day-and-night operation, better low-light behavior, and cleaner visible-light color during the daytime, even if that means lower resolution and a slightly more custom setup.
+
+The Waveshare IMX462 is in some ways the more specialized camera for this project. Its Sony IMX462 sensor is designed for strong low-light and near-infrared performance, and the board includes an IR-cut mechanism so daytime color is more normal while still working well with IR illumination at night. It is also only a 1080p camera, which can actually be an advantage here because it is simpler and more in line with what the Pi Zero 2 W needs for a small streaming appliance. The tradeoffs are that you give up the extra detail of a 12MP sensor, the lens is fixed-focus rather than autofocus, and setup can take a little more tinkering because the Pi may not auto-detect it without the configuration change described below.
+
+In practical terms, choose the Arducam if you want the easier mainstream camera path and value higher resolution and autofocus more than accurate daytime color. Choose the Waveshare if your priority is reliable day-and-night operation, better low-light behavior, and cleaner visible-light color during the daytime, even if that means lower resolution and a slightly more custom setup.
 
 ### Waveshare IMX462 Configuration Change
 
