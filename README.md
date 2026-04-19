@@ -425,7 +425,7 @@ For all three pigtails:
 
 4. Twist the stripped end of one wire around the other end of the resistor, and twist the other wire around the remaining LED lead.
 5. Using the soldering iron, apply a small amount of solder to the three spliced areas so you have a secure electrical connection.
-6. Cut a piece of heat-shrink tubing long enough to cover your splice.
+6. Cut a piece of heat-shrink tubing long enough to cover each of the splices. One piece can cover the entire resistor and both ends of the splice. The other piece can cover the other wire's splice.
 7. Make sure the exposed conductor portions of the wires and leads cannot touch each other.
 8. Use a blow dryer to gently heat the heat-shrink tubing until it contracts tightly around the splice.
 9. Once you know the final length you need, cut the wires and strip about 1 centimeter of insulation from the ends.
@@ -480,7 +480,7 @@ Connect the colored test LED pigtail to the MOSFET board.
 
 ### 2.4 Connect Everything to the Pi
 
-Use this Raspberry Pi Zero 2 W pinout image for reference. Be very careful here, since it is easy to connect things to the wrong pins. Note that the pin number is actually different than the GPIO number. The pin numbers run from 1 to 20, right to left and top to bottom. The GPIO numbers are defined in the software, so you Pin 3 for example is GPIO 2. 
+Use this Raspberry Pi Zero 2 W pinout image for reference. Be very careful here, since it is easy to connect things to the wrong pins. Note that the pin number is actually different than the GPIO number. The pin numbers run from 1 to 20, left to right and top to bottom. The GPIO numbers are defined in the software, so you Pin 3 for example is GPIO 2. 
 
 <p align="center">
   <img src="images/raspberry-pi-pinout.jpg" alt="Raspberry Pi Zero pinout diagram" width="900">
@@ -490,7 +490,7 @@ Make the following connections:
 
 - Connect the yellow `3.3V` power supply for the motion detector to **Pin 1**.
 - Connect the black ground for the motion detector to **Pin 6**. Any ground pin will work.
-- Leave the green sensor wire unconnected for now.
+- Connect the green sensor wire to **Pin 16** of the Pi.
 - Connect a red jumper wire to the `+5V` **Pin 2** of the Pi.
 - Connect the other end of this wire to the MOSFET board `+` power-supply terminal on the supply side.
 - Connect a black jumper wire to **Ground Pin 20** of the Pi.
@@ -500,9 +500,9 @@ Make the following connections:
 - Connect a black ground jumper wire to **Pin 14** of the Pi.
 - Connect the other end to the `-` control pin of the MOSFET board.
 
-At this point, you should have the following wiring:
+Here is the complete wiring setup:
 
-```text
+```
 Pin 1   (3.3V)   -> Yellow -> Motion detector + pin
 Pin 2   (5V)     -> Red    -> MOSFET power supply + screw terminal (power supply side)
 Pin 6   (GND)    -> Black  -> Motion detector - pin
@@ -578,22 +578,7 @@ Run the basic LED test:
 
 You should see the colored LED turn on and then turn off again.
 
-Then:
-
-1. Unplug the LED pigtail from the `LED1` connection.
-2. Plug it into the `LED2` connection, again being careful about polarity.
-3. Run the same test again:
-
-   ```bash
-   ./test_led.py
-   ```
-
-You should see the same behavior.
-
-If either test fails, something is wrong. Most likely:
-
-- The patch wires are connected to the wrong Pi pins, or
-- There is a mistake in the control-board wiring
+If the test fails, something is wrong. Most likely, the patch wires are connected to the wrong Pi pins.
 
 Next, run the motion sensor test:
 
@@ -688,7 +673,7 @@ A Dremel works really well for this, but a small hacksaw can also work.
 
 ### 4.2 Mount the Enclosure to the Birdhouse
 
-There should be four small holes in the back of the enclosure. Use `#4` wood screws to attach the enclosure to the side of the birdhouse.
+There should be four small holes in the back of the enclosure. Use #4 wood screws to attach the enclosure to the side of the birdhouse.
 
 If the enclosure does not already have holes, drill your own.
 
@@ -724,9 +709,9 @@ Run all three cables back to the enclosure.
 
 <p align="center"><em>Example interior view during assembly, showing the roof area and component placement inside the birdhouse.</em></p>
 
-### 4.6 Put the Electronics Back Inside the Enclosure
+### 4.6 Put the Electronics Inside the Enclosure
 
-Place the electronics back inside the enclosure. 
+Place the electronics inside the enclosure. 
 
 <p align="center">
   <img src="images/IMG_3514.jpeg" alt="Electronics installed inside the rear enclosure" width="650">
@@ -740,7 +725,7 @@ Connect the ribbon cable to the Pi as before, if it is not already connected.
 
 ### 4.8 Reconnect the Control Board
 
-Connect the MOSFET board and motion detector board to the correct Pi pins as before using the colored wires.
+Connect the MOSFET board and motion detector board to the correct Pi pins as before using the colored wires, if not already connected.
 
 ### 4.9 Connect the Power Supply Cable
 
@@ -775,7 +760,7 @@ For solar setups, also attach the solar power cable you previously made and rout
 
 If your Pi is not already on, power it up by switching the power switch to "On" (if using a UPS Hat) or by connecting an external USB power (if using wired power). Watch for the green LED to light up and stop flickering.
 
-Using a web browser on the same wifi network as the Pi, browse to "<NAME-OF-YOUR-PI>:8080". This is where the NestCamDIY stream is located. If you are using a custom port other than 8080, then use that number instead.
+Using a web browser on the same wifi network as the Pi, browse to http://NAME-OF-YOUR-PI:8080. This is where the NestCamDIY stream is located. If you are using a custom port other than 8080, then use that number instead.
 
 If you get a page not found error or see the web page but get a blank image, you'll need to troubleshoot. First, see if you can SSH into your Pi as before. Next, see if the nestcam service is running:
 
@@ -823,7 +808,7 @@ You should also look at the Configuration section below - there are numerous val
 
 ### 4.11 Secure the LEDs and Motion Sensor
 
-Once you are happy with the lighting and motion detection, permenantly secure the LEDs and motion sensor using hot glue. You may also need to put a bit of hot glue on the cap of the motion sensor - the top kept falling off on mine. You will ideally not have anything bulging out of the roof of the birdhouse other than the wires themselves, so you can route these flat along the roof and into the enclosure. I use Gorilla Tape to weatherproof the LEDs, motion sensor, and wires, but you could also use a waterproof sealant, heat-shrink wrap or something else. I like having the wires running flat over the roof and down a corner of the birdbox into the enclosure.
+Once you are happy with the lighting and motion detection, permanently secure the LEDs and motion sensor using hot glue. You may also need to put a bit of hot glue on the cap of the motion sensor - the top kept falling off on mine. You will ideally not have anything bulging out of the roof of the birdhouse other than the wires themselves, so you can route these flat along the roof and into the enclosure. I use Gorilla Tape to weatherproof the LEDs, motion sensor, and wires, but you could also use a waterproof sealant, heat-shrink wrap or something else. I like having the wires running flat over the roof and down a corner of the birdbox into the enclosure.
 
 ### 4.12 Seal the Enclosure
 
