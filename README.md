@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="images/logo_cropped.png" alt="NestCamDIY logo" width="300">
+  <img src="images/logo.png" alt="NestCamDIY logo" width="240">
 </p>
 
 <p align="left">
@@ -11,7 +11,15 @@
 </p>
 
 <p align="center">
+  <sub>Streaming video from inside the birdhouse.</sub>
+</p>
+
+<p align="center">
   <img src="images/IMG_3510.jpeg" alt="Completed NestCamDIY birdhouse mounted on a tree" width="88%">
+</p>
+
+<p align="center">
+  <sub>Can be powered by solar panels, batteries, or a USB.</sub>
 </p>
 
 ## Introduction
@@ -34,25 +42,9 @@ If you are willing to solder a bit more, you can create your own custom board to
 
 ## Power Considerations
 
-The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger, and connect this to the device. Alternatively, you can use either a battery or a solar setup. Both involve using an uninterruptible power supply to power the device while you are swapping out the battery or when it is dark.
+The simplest power setup is just to plug it in. You can run an outdoor extension cord to the birdhouse, plug in an outdoor USB charger, and connect this to the device. Alternatively, you can use either a battery or a solar setup. Both involve using an uninterruptible power supply to power the device while you are swapping out the battery or when it is dark out.
 
-You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. You can periodically recharge this external battery - the onboard UPS power supply should keep the system running while you do so.
-
-For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions. There is a section on this below with more details.
-
-## Cost
-
-Assuming you have the tools you'll need (soldering iron, wire strippers, a drill, etc.), the cost of the electronics should be on the order of $250. This does not include the birdhouse itself, any solar panels, or an external battery, since these vary based on your installation choices. Most of that cost is the camera, internal battery, and the Pi.
-
-All the materials required (other than the birdhouse itself) are listed in the BillOfMaterials.csv in this repo, along with links to where you can buy on Amazon.
-
-## Patience and Frustration
-
-If you are new to working on projects like this, it is essentially a law of nature that they won't work the first time. If something just works the very first time you hook it up, it is basically a miracle. Well, at least for my projects...
-
-The point is that you need to be patient and it is OK (even desireable?) to break things from time-to-time. In creating this project, I ran through two Pis, two UPS hats, three solar panels, one completely assembled circuit board that I spent hours soldering together, and numerous other connectors, wires, screws, etc. It's OK - it's to be expected and part of the creative process.
-
-If something isn't working and you get frustrated, just take a break. Chances are the answer will come to you the next morning. Also, ChatGPT has made debugging vastly easier - don't be shy about asking it why something is not working correctly. Point it to this repo, give it your error messages, and chances are it can lead you directly to the fix. What we're doing here isn't easy - it takes a huge attentiveness to detail, some serious focus, and multiple disparate skillsets. But if you are a beginning, just this one single project will teach you about electrical engineering, python, linux, soldering, woodworking, video, the command line, SSH, git, basic cryptography, web services, software development, solar design, power budgeting, and networking...without ever opening a textbook. So if you get frustrated, take a break and remember to have fun with the process! 
+You can leave a weatherproof battery somewhere convenient, such as at the base of the tree, and run a USB charging cord from it to the device. For solar, you will need to experiment to find a suitable solar panel size and location. In sunny locations this is easy, but it is more challenging in cloudy weather or at shaded sites. You will need a large enough solar array coupled with a good-size battery to get you through the night and less-than-ideal solar conditions.
 
 ## 1. Raspberry Pi Configuration
 
@@ -90,11 +82,11 @@ Install Raspberry Pi OS on your SD card following the instructions provided by t
 
 - Select **Raspberry Pi Zero 2 W** as your device.
 - Select the default full **Raspberry Pi OS (64-bit)** as your operating system. Testing with Lite and 32-bit systems did not yield meaningful power savings.
-- Select the SD card as the place where the new image should be written. Be very careful here. You do **not** want to overwrite your hard drive or anything important! Check that the size shown matches the size of your SD card.
+- Select the correct place to write the image. Be very careful here. You do **not** want to overwrite your hard drive or anything important! Check that the size shown matches the size of your SD card.
 - Name your NestCam something easy to remember - you will use this name to view it on your web browser.
 - Select your time zone and keyboard layout.
 - Enter a username and password that you would like to use for the Pi.
-- Enter the Wi-Fi network name and password that you would like the Pi to connect to. You can add additional networks later. In fact, if you are setting up the Pi using a wifi network different than the one it will be deployed on, you <em>need</em> to do this step or you will loose access to your Pi as soon as you switch networks!
+- Enter the Wi-Fi network name and password that you would like the Pi to connect to. You can add additional networks later.
 - Enable SSH. You can use either password or public-key authentication. Public-key authentication is more secure, but you will need to take an additional step. It is worth learning how to do this if you do not already know how, but if you are in a hurry, using a strong password is fine.
 - Disable Raspberry Pi Connect.
 - Double-check the selections and write the new image. This will take a minute or two.
@@ -148,7 +140,7 @@ Next, solder header pins onto the Raspberry Pi.
 
 Be careful to ensure the solder joints are solid, since bad soldering can lead to major debugging headaches later. <em>Again, if you do not want to mess with this, you can buy a pre-soldered version of the Pi.</em>
 
-### 1.3A <em>Solar and Battery Only: Install the UPS HAT</em>
+### 1.3A Solar and Battery Only: Install the UPS HAT
 
 The idea here is to use a UPS (Uninterruptible Power Supply) "hat" to the Raspberry Pi. This provides the Pi with both an interface for accepting solar power and also its own battery supply so you don't need to shut it down while switching your external batteries or when your solar panels are not generating enough power (such as during night). Attach the UPS hat using the standoff screws.
 
@@ -156,14 +148,14 @@ The idea here is to use a UPS (Uninterruptible Power Supply) "hat" to the Raspbe
   <img src="images/hat.jpg" alt="Seengreat Pi Zero UPS HAT (B)" width="500">
 </p>
 
-<p align="center"><em>Seengreat Pi Zero UPS HAT (B) mounted on its battery. You will likely want to swap this small battery for a much larger 10,000 mAh option as detailed below.</em></p>
+<p align="center"><em>Seengreat Pi Zero UPS HAT (B) mounted on its battery.</em></p>
 
 The size of the battery here is up to you. The bigger the battery, the more time you have between solar charging or between external battery swaps. The downside is it will require a larger enclosure. In general, 10,000 mAh is a good choice. That is the size battery indicated in the Bill of Materials. Because the system should draw more or less 1.1W, that (in theory) should give you about 30 hours of runtime.
 
 <details>
 <summary><strong><em>Educational Background: What is a watt, amp, and volt?</em></strong></summary>
 
-> A **volt** is a measure of electrical potential difference. In plain English, it is the amount of oomph behind each electron moving through the circuit. An **amp** (or ampere) measures current, which is how much electric charge is flowing. This is the number of electrons moving through the circuit. A **watt** measures power, meaning how quickly electrical energy is being used. So the more electrons running through the circuit, and the more oomph behind each one, the higher the power (watts).
+> A **volt** is a measure of electrical potential difference. In plain English, it is the electrical “push” that drives charge through a circuit. An **amp** (or ampere) measures current, which is how much electric charge is flowing. A **watt** measures power, meaning how quickly electrical energy is being used.
 >
 > In simple direct-current systems like this one, the most useful relationship is:
 >
@@ -245,28 +237,8 @@ Once you have SSH access to the Pi:
    sudo apt install git
    ```
 
-<details>
-<summary><strong><em>Educational Background: What is git?</em></strong></summary>
-
-> Git is a version-control system. It keeps track of changes to files over time, which makes it possible to download a project, see what has been changed, update it later, and collaborate without passing around loose copies of files. In a project like NestCamDIY, that matters because the software consists of many related files that need to stay in sync: Python scripts, service files, web files, test scripts, and configuration examples.
->
-> When you run:
->
-> ```bash
-> git clone https://github.com/ehrenbrav/NestCamDIY
-> ```
->
-> you are telling Git to copy the entire repository from GitHub onto your Raspberry Pi. That gives you the project directory exactly as it is stored in the repository, including the installer, the daemon, the test scripts, and the example configuration files. Once it is cloned, you can move into that directory with `cd NestCamDIY` and run the installer from there.
->
-> Git is also useful later if the project changes. You can return to the repository directory and use Git to inspect the current status, compare changes, or pull down updates from GitHub. For a beginner, though, the most important idea here is simple: Git is the tool that downloads the software project in an organized way instead of making you manually copy a bunch of individual files.
->
-> If you want more background, start here:
->
-> - [Git documentation](https://git-scm.com/doc)
-> - [Git on Wikipedia](https://en.wikipedia.org/wiki/Git)
-> - [GitHub Docs: About repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/about-repositories)
-
-</details>
+Educational Background: What is git?
+**TODO**
 
 4. Clone the NestCamDIY repository:
 
@@ -287,6 +259,25 @@ Once you have SSH access to the Pi:
    ```
 
    It might take a while to install all required dependencies since you are starting with a very bare-bones operating system.
+
+<details>
+<summary><strong><em>Educational Background: What is Python?</em></strong></summary>
+
+> Python is a programming language. It is designed to be relatively readable and concise, which is one reason it is so widely used for small hardware projects, automation, data analysis, web services, and teaching. In practice, that means Python often lets you express useful behavior with less code than lower-level languages, while still having access to large libraries and strong community support.
+>
+> For a project like NestCamDIY, Python is a very good fit because the job is not just one thing. The software needs to talk to camera libraries, control GPIO pins, run a small web server, respond to motion events, manage files, and integrate with Linux services. Python is well suited to gluing all of those pieces together in a way that is easier to read and modify than a lower-level implementation would usually be.
+>
+> That is why you see commands such as `sudo python setup.py` in this README and files such as `nestcam_daemon.py`, `power_stats.py`, and the test scripts in the repository. The `.py` suffix simply means they are Python files. In other words, when you run those commands, you are asking the Pi to use the Python interpreter to execute the instructions written in those files.
+>
+> Python is not the operating system itself, and it is not the same thing as Linux. Linux is the operating system running on the Raspberry Pi. Python is one of the tools installed on that operating system that lets you write and run software. A useful way to think of it is that Linux provides the environment, while Python is one of the languages used to tell the computer what to do inside that environment.
+>
+> If you want more background, start here:
+>
+> - [Python documentation](https://docs.python.org/3/)
+> - [Python on Wikipedia](https://en.wikipedia.org/wiki/Python_(programming_language))
+> - [Raspberry Pi Python documentation](https://www.raspberrypi.com/documentation/computers/python.html)
+
+</details>
 
 7. Shut down the Pi for now until it is needed again:
 
@@ -375,18 +366,18 @@ For all three pigtails:
    <details>
    <summary><strong><em>Educational Background: Why do we use a resistor here, and why 680 ohms?</em></strong></summary>
 
-   > A resistor limits how much current flows through the LED. LEDs are not like ordinary pieces of wire: once they begin conducting, the current can rise very quickly if nothing in the circuit limits it. Without a resistor, you can easily overdrive the LED, shorten its life, or burn it out almost immediately.
-   >
-   > The reason you pick a resistor value at all is basic circuit math. The supply voltage is higher than the LED's forward voltage, so the extra voltage has to be dropped somewhere. The resistor provides that drop and sets the current to a safe level according to Ohm's law. That is why almost every simple LED circuit includes one.
-   >
-   > A value around 680 ohms is a conservative, beginner-friendly choice for a simple test LED pigtail like this. It keeps current low, reduces the chance of damaging parts, and is still bright enough for testing. It is not the only value that would work, but it is a safe and practical choice when the goal is reliability rather than squeezing out maximum brightness.
-   >
-   > If you want more background, start here:
-   >
-   > - [Resistor on Wikipedia](https://en.wikipedia.org/wiki/Resistor)
-   > - [Ohm's law on Wikipedia](https://en.wikipedia.org/wiki/Ohm%27s_law)
-   > - [SparkFun: Light-Emitting Diodes (LEDs)](https://learn.sparkfun.com/tutorials/light-emitting-diodes-leds/all)
-   > - [Adafruit: Revisiting Resistors](https://learn.adafruit.com/all-about-leds/revisiting-resistors)
+> A resistor limits how much current flows through the LED. LEDs are not like ordinary pieces of wire: once they begin conducting, the current can rise very quickly if nothing in the circuit limits it. Without a resistor, you can easily overdrive the LED, shorten its life, or burn it out almost immediately.
+>
+> The reason you pick a resistor value at all is basic circuit math. The supply voltage is higher than the LED's forward voltage, so the extra voltage has to be dropped somewhere. The resistor provides that drop and sets the current to a safe level according to Ohm's law. That is why almost every simple LED circuit includes one.
+>
+> A value around 680 ohms is a conservative, beginner-friendly choice for a simple test LED pigtail like this. It keeps current low, reduces the chance of damaging parts, and is still bright enough for testing. It is not the only value that would work, but it is a safe and practical choice when the goal is reliability rather than squeezing out maximum brightness.
+>
+> If you want more background, start here:
+>
+> - [Resistor on Wikipedia](https://en.wikipedia.org/wiki/Resistor)
+> - [Ohm's law on Wikipedia](https://en.wikipedia.org/wiki/Ohm%27s_law)
+> - [SparkFun: Light-Emitting Diodes (LEDs)](https://learn.sparkfun.com/tutorials/light-emitting-diodes-leds/all)
+> - [Adafruit: Revisiting Resistors](https://learn.adafruit.com/all-about-leds/revisiting-resistors)
 
    </details>
 
@@ -452,6 +443,8 @@ Use this Raspberry Pi Zero 2 W pinout image for reference. Be very careful here,
   <img src="images/raspberry-pi-pinout.jpg" alt="Raspberry Pi Zero pinout diagram" width="900">
 </p>
 
+<p align="center"><em>Pinout reference for the Raspberry Pi Zero. Double-check pin numbers before making any connections.</em></p>
+
 Make the following connections:
 
 - Connect the yellow `3.3V` power supply for the motion detector to **Pin 1**.
@@ -475,13 +468,12 @@ Pin 6   (GND)    -> Black  -> Motion detector - pin
 Pin 12  (GPIO18) -> Blue   -> MOSFET + control pin
 Pin 14  (GND)    -> Black  -> MOSFET - control pin
 Pin 16  (GPIO23) -> Green  -> Motion detector signal pin (unconnected for testing)
-Pin 18  (GPIO24) -> Orange -> (Optional - comes later) IR filter enable/disable on Waveshare camera
 Pin 20  (GND)    -> Black  -> MOSFET power supply - screw terminal (power supply side)
 ```
 
 The red and black LED wires should be attached to the `+` and `-` screw terminals, respectively, on the load side of the MOSFET board.
 
-### 2.4A <em>Solar Setups Only: Create a Solar Power Cable</em>
+### 2.4A Solar Setups Only: Create a Solar Power Cable
 
 For solar setups, create a solar power cable.
 
@@ -510,10 +502,6 @@ On the Pi, use your fingernail to carefully push both sides of the tiny black pl
 - The ribbon cable should then feel securely connected and should not pull out easily.
 - Repeat the same process on the camera side.
 - On the camera side as well, the metal contact strips should face the board.
-- If you are using the Waveshare camera, you additionally need to connect a wire to control the IR filter.
--- If you are making your own JST connectors, cut a piece of orange wire long enough to reach from the camera to the Pi header pins. Strip both ends. Thread one end through the "GPIO" hole in the Waveshare camera, so that the wire comes out of the front of the board, on the same side as the camera. Solder this to the board. Connect a female socket to the other end and attach to Pin 18 of the Pi.
--- If you are using pre-made jumper wires, put the pin of an orange wire through the "GPIO" hole in the Waveshare board so that the wire comes out of the front (camera-side) of the board. Solder this to the board. Connect the other end to Pin 18 of the Pi.
-- Finally, if you are using the Waveshare camera, be sure to make the software change indicated below in the "Waveshare IMX462 Configuration Change" section below.
 
 ### 3.2 Boot the Pi
 
@@ -566,7 +554,7 @@ If either test fails, something is wrong. Most likely:
 Next, run the motion sensor test:
 
 ```bash
-./test_motion.py
+./test_motion_detector.py
 ```
 
 Wave your hand in front of the motion sensor. The LED should light up. If you stay still, the LED should go out again. Once you have verified that it works, hit `Ctrl-C` to stop the test.
@@ -599,7 +587,7 @@ Run:
 
 If the test fails, check the ribbon cable connection, especially that it is securely attached on each end and that the metal contacts are facing into each board.
 
-### 3.4A <em>Solar and Battery Setups: Test the UPS HAT</em>
+### 3.4A Solar and Battery Setups: Test the UPS HAT
 
 If you are using a UPS HAT, run:
 
@@ -689,12 +677,6 @@ Run all three cables back to the enclosure.
 
 Place the electronics back inside the enclosure. 
 
-<p align="center">
-  <img src="images/IMG_3514.jpeg" alt="Electronics installed inside the rear enclosure" width="650">
-</p>
-
-<p align="center"><em>Rear enclosure open, showing the Pi, UPS HAT, wiring, and cable routing.</em></p>
-
 ### 4.7 Reconnect the Ribbon Cable
 
 Connect the ribbon cable to the Pi as before, if it is not already connected.
@@ -725,12 +707,6 @@ For solar setups, also attach the solar power cable you previously made and rout
 </p>
 
 <p align="center"><em>Example of wires routed through the enclosure and sealed with removable putty.</em></p>
-
-<p align="center">
-  <img src="images/IMG_3513.jpeg" alt="Rear of the birdhouse with the enclosure closed" width="650">
-</p>
-
-<p align="center"><em>Rear view with the enclosure closed and the ribbon cable and other wires routed along the side of the birdhouse.</em></p>
 
 ### 4.10 Test the System.
 
@@ -800,9 +776,9 @@ In order to edit this file, you will need to use sudo (since it is in the protec
 > In `nano`, you can move around with the arrow keys and simply type to add or change text. The command list is shown at the bottom of the screen. `Ctrl-O` means **write out**, which saves the file, and `Ctrl-X` exits the editor. If you try to exit after changing something, `nano` will ask whether you want to save first. That is why `nano` is a good first editor for a project like this: it is simple, direct, and hard to get trapped in.
 >
 > A few other shortcuts are especially useful. `Ctrl-W` searches for text, `Ctrl-K` cuts the current line, and `Ctrl-U` pastes it back. Those are enough for most small edits to configuration files. If you make a mistake, you can usually just reopen the file and correct it. For this project, that is often all you need in order to change values in `nestcam.env`, adjust camera settings, or update service configuration.
-> 
+>
 > You may also hear about `vim` or `vi`. These are powerful editors, but they have a steeper learning curve because they use different modes for typing text and issuing commands. They are worth learning eventually, but if your goal is just to get the NestCam running, `nano` is usually the easier place to start.
-> 
+>
 > If you want more background, start here:
 >
 > - [GNU nano documentation](https://www.nano-editor.org/docs.php)
@@ -811,64 +787,41 @@ In order to edit this file, you will need to use sudo (since it is in the protec
 
 </details>
 
-The main configuration file for the installed system is `/etc/nestcam/nestcam.env`. The installer copies a sample version of this file into place, and the daemon reads it at startup. After you make changes, restart the service with `sudo systemctl restart nestcam.service` so the new settings take effect.
-
-The first group of settings controls how you reach the camera over your network. `LIVE_BIND` determines which network interfaces the web server listens on, and `LIVE_PORT` determines the port number, which is why the README uses an address such as `<NAME-OF-YOUR-PI>:8080`. Optional `AUTH_ENABLED`, `LIVE_USER`, and `LIVE_PASS` settings can add simple HTTP Basic Authentication if you want a login prompt on your local network.
-
-The next group controls recording behavior and storage. `RECORDINGS_ROOT` chooses where video clips are saved. `RECORDING_ENABLED` lets you disable clip recording entirely while still using live view. `MIN_FREE_GB` is a safety setting: if free disk space falls below that amount, the daemon will refuse to start a new recording rather than filling the storage completely.
-
-For image quality, the most important settings are `FPS`, `AE_ENABLE`, `EXPOSURE_TIME`, `ANALOGUE_GAIN`, and `SATURATION`. `FPS` sets the target frame rate. Lower frame rates can improve night performance because they allow longer exposures, but they also make motion look less smooth. `AE_ENABLE=1` leaves exposure and gain on automatic control, which is usually the best starting point. If you set `AE_ENABLE=0`, then `EXPOSURE_TIME` and `ANALOGUE_GAIN` become manual controls. Longer exposure makes the image brighter but increases motion blur, while higher analogue gain also brightens the image but adds noise and grain. `SATURATION` controls color intensity. For infrared-only night scenes, a value near `0.0` can be helpful because it produces a grayscale image, which often looks cleaner than distorted IR color.
-
-The infrared light settings determine how strongly the birdhouse is illuminated at night. `IR_GPIO` identifies the Pi pin used to control the lights, and `IR_ACTIVE_HIGH` tells the software whether a high signal or a low signal turns the lights on. `IR_BRIGHTNESS` lets you dim the LEDs from `0.0` to `1.0`, which is useful if the scene is overexposed or if you want to save some power. `IR_PWM_FREQUENCY` controls the dimming frequency. In general, you should leave the pin assignment and polarity alone unless your wiring is different from the README, but brightness is a very useful tuning control.
-
-The motion-detection settings are the main tools for reducing false triggers. `MOTION_GPIO_PIN` selects the GPIO pin connected to the PIR sensor. `MOTION_ACTIVE_HIGH` and `MOTION_PULL` must match the way the sensor is wired so the input does not float. `SAMPLE_HZ` controls how often the PIR sensor is checked. `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` says how many active readings in a row are required before motion is treated as real, and `MOTION_CLEAR_CONSECUTIVE_SAMPLES` says how many inactive readings are required before motion is treated as over. Increasing the trigger threshold usually reduces recordings of nothing, while keeping the clear threshold somewhat lower helps prevent rapid on-off flapping.
-
-Three other motion settings shape the recorded clips. `MIN_CLIP_SECONDS` makes sure even a short motion event still produces a clip of usable length. `MOTION_COOLDOWN_SECONDS` keeps recording running briefly after motion stops so recordings do not end too abruptly when an animal pauses or moves intermittently. `MOTION_STARTUP_GRACE_SECONDS` ignores the PIR sensor for a short period after startup so the sensor has time to stabilize.
-
-A good way to tune the system is to change only one or two variables at a time. For daytime image tuning, leave exposure on automatic first and test framing, focus, and general brightness. For night tuning, start by lowering `FPS`, then experiment with `SATURATION`, and only then move on to manual exposure and gain if needed. For motion tuning, begin by increasing `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` or `MOTION_COOLDOWN_SECONDS` before making more aggressive changes.
+> The main configuration file for the installed system is `/etc/nestcam/nestcam.env`. The installer copies a sample version of this file into place, and the daemon reads it at startup. After you make changes, restart the service with `sudo systemctl restart nestcam.service` so the new settings take effect.
+>
+> The first group of settings controls how you reach the camera over your network. `LIVE_BIND` determines which network interfaces the web server listens on, and `LIVE_PORT` determines the port number, which is why the README uses an address such as `<NAME-OF-YOUR-PI>:8080`. Optional `AUTH_ENABLED`, `LIVE_USER`, and `LIVE_PASS` settings can add simple HTTP Basic Authentication if you want a login prompt on your local network.
+>
+> The next group controls recording behavior and storage. `RECORDINGS_ROOT` chooses where video clips are saved. `RECORDING_ENABLED` lets you disable clip recording entirely while still using live view. `MIN_FREE_GB` is a safety setting: if free disk space falls below that amount, the daemon will refuse to start a new recording rather than filling the storage completely.
+>
+> For image quality, the most important settings are `FPS`, `AE_ENABLE`, `EXPOSURE_TIME`, `ANALOGUE_GAIN`, and `SATURATION`. `FPS` sets the target frame rate. Lower frame rates can improve night performance because they allow longer exposures, but they also make motion look less smooth. `AE_ENABLE=1` leaves exposure and gain on automatic control, which is usually the best starting point. If you set `AE_ENABLE=0`, then `EXPOSURE_TIME` and `ANALOGUE_GAIN` become manual controls. Longer exposure makes the image brighter but increases motion blur, while higher analogue gain also brightens the image but adds noise and grain. `SATURATION` controls color intensity. For infrared-only night scenes, a value near `0.0` can be helpful because it produces a grayscale image, which often looks cleaner than distorted IR color.
+>
+> The infrared light settings determine how strongly the birdhouse is illuminated at night. `IR_GPIO` identifies the Pi pin used to control the lights, and `IR_ACTIVE_HIGH` tells the software whether a high signal or a low signal turns the lights on. `IR_BRIGHTNESS` lets you dim the LEDs from `0.0` to `1.0`, which is useful if the scene is overexposed or if you want to save some power. `IR_PWM_FREQUENCY` controls the dimming frequency. In general, you should leave the pin assignment and polarity alone unless your wiring is different from the README, but brightness is a very useful tuning control.
+>
+> The motion-detection settings are the main tools for reducing false triggers. `MOTION_GPIO_PIN` selects the GPIO pin connected to the PIR sensor. `MOTION_ACTIVE_HIGH` and `MOTION_PULL` must match the way the sensor is wired so the input does not float. `SAMPLE_HZ` controls how often the PIR sensor is checked. `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` says how many active readings in a row are required before motion is treated as real, and `MOTION_CLEAR_CONSECUTIVE_SAMPLES` says how many inactive readings are required before motion is treated as over. Increasing the trigger threshold usually reduces recordings of nothing, while keeping the clear threshold somewhat lower helps prevent rapid on-off flapping.
+>
+> Three other motion settings shape the recorded clips. `MIN_CLIP_SECONDS` makes sure even a short motion event still produces a clip of usable length. `MOTION_COOLDOWN_SECONDS` keeps recording running briefly after motion stops so recordings do not end too abruptly when an animal pauses or moves intermittently. `MOTION_STARTUP_GRACE_SECONDS` ignores the PIR sensor for a short period after startup so the sensor has time to stabilize.
+>
+> A good way to tune the system is to change only one or two variables at a time. For daytime image tuning, leave exposure on automatic first and test framing, focus, and general brightness. For night tuning, start by lowering `FPS`, then experiment with `SATURATION`, and only then move on to manual exposure and gain if needed. For motion tuning, begin by increasing `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` or `MOTION_COOLDOWN_SECONDS` before making more aggressive changes.
 
 ## 6. Camera Choice
 
-At this point, there are two camera options that make the most sense for this project:
+There are several different cameras you can choose from.
 
-- the **Arducam for Raspberry Pi Camera Module 3, 12MP IMX708 75° Autofocus NoIR Pi Camera V3**
-- the **Waveshare IMX462 2MP IR-CUT Camera**
+### Arducam for Raspberry Pi Camera Module 3, 12MP IMX708 75° Autofocus Noir Pi Camera V3
 
-Both can work well with NestCamDIY because the infrared illumination in this project comes from **separate external IR LEDs** that are controlled by the Pi. That matters because it avoids a major power-budget problem seen on some other camera boards: built-in IR lights that switch on automatically and draw power whether you want them or not. With the two cameras discussed here, the IR lighting is under your control.
+This camera worked well in very low light. The drawback is that it lacks an infrared filter, so colors under natural lighting are distorted and look pinkish.
 
-### Arducam Camera Module 3 NoIR (IMX708)
+### Waveshare IMX462 2MP IR-CUT Camera
 
-This is the simpler and more mainstream option. It offers much higher resolution than the Waveshare, autofocus, and a camera family that is already very familiar in the Raspberry Pi ecosystem. If you want the easiest path to a working image, the option to crop later, or the flexibility of autofocus in a small enclosure where camera placement may not be perfect, this is a strong choice.
+This camera is specifically marketed as working well in low light while also supporting IR-cut behavior. The drawback is availability, since lead time may be two weeks or more depending on whether it is available on Amazon.
 
-The main drawback is that it is a **NoIR** camera, meaning it does not have an infrared-blocking filter. That makes it excellent for low-light and infrared use, but it also means daylight colors are less accurate. Under normal visible light, foliage and feathers can take on odd pinkish or purplish tones because the sensor is also seeing infrared that a normal daylight camera would block. If your main goal is simply to observe behavior and get a reliable image day and night, this may be perfectly acceptable. If you care a lot about natural-looking daytime plumage and nest appearance, it is a real downside.
+Both should work.
 
-### Waveshare IMX462 IR-CUT Camera
-
-The Waveshare is the more specialized day-and-night option. It is a lower-resolution camera, but the IMX462 sensor is designed for strong low-light performance, and the board includes an **IR-cut filter** that can be switched for daytime or nighttime use. In practice, that means it can preserve more normal-looking daytime color while still working well with external infrared illumination at night.
-
-The main tradeoffs are lower resolution, fixed focus rather than autofocus, and a somewhat more custom setup. The Pi may not auto-detect it without a configuration change, and if you want the system to switch the IR-cut filter automatically you may need to wire the filter-control pad to a GPIO and enable the matching software support. So while the Waveshare is a very good fit for the actual imaging problem in a birdhouse, it can require a bit more setup effort.
-
-### How to Choose
-
-For most birdhouse use, the most important question is not resolution but **what you care about most during the day**, because birds are usually most active in daylight.
-
-Choose the **Waveshare IMX462** if:
-
-- you want more natural-looking daytime color
-- you want the best day/night balance from one camera
-- you are willing to do a slightly more custom setup
-- you are comfortable with 1080p resolution and fixed focus
-
-Choose the **Arducam IMX708 NoIR** if:
-
-- you want the simpler, more mainstream camera path
-- you want autofocus and much higher resolution
-- you may want to crop the image later
-- you do not mind distorted daytime color
-
-In other words, the Arducam is the easier and more flexible general-purpose camera, while the Waveshare is the better fit if you care more about correct daytime color and cleaner switching between normal daylight viewing and infrared night viewing.
-
-A final point on power: because both of these options use **external IR LEDs** rather than built-in camera-mounted illuminators, both can fit a low-power NestCamDIY build. The key difference is not power draw from the camera itself, but whether you want the simplicity of the Arducam NoIR path or the better daytime color of the Waveshare IR-cut path.
+The Arducam IMX708 option gives you much higher resolution, autofocus, and broad software familiarity because it is built around the same Sony IMX708 family used in Raspberry Pi Camera Module 3 products. That makes it a good choice if you want flexibility in framing, the option to crop the image later, or if you expect the camera distance to change and want autofocus to handle that automatically. The tradeoff is that this extra resolution is not always necessary for a birdhouse stream, and autofocus can be one more variable to manage in a fixed installation. Because the NoIR version does not use an IR-cut filter, it is also not ideal if faithful daytime color is important. 
+>
+>The Waveshare IMX462 is in some ways the more specialized camera for this project. Its Sony IMX462 sensor is designed for strong low-light and near-infrared performance, and the board includes an IR-cut mechanism so daytime color is more normal while still working well with IR illumination at night. It is also only a 1080p camera, which can actually be an advantage here because it is simpler and more in line with what the Pi Zero 2 W needs for a small streaming appliance. The tradeoffs are that you give up the extra detail of a 12MP sensor, the lens is fixed-focus rather than autofocus, and setup can take a little more tinkering because the Pi may not auto-detect it without the configuration change described below.
+>
+>In practical terms, choose the Arducam if you want the easier mainstream camera path and value higher resolution and autofocus more than accurate daytime color. Choose the Waveshare if your priority is reliable day-and-night operation, better low-light behavior, and cleaner visible-light color during the daytime, even if that means lower resolution and a slightly more custom setup.
 
 ### Waveshare IMX462 Configuration Change
 
@@ -919,91 +872,3 @@ sudo nmcli connection delete "YOUR-SSID"
 ```
 
 A good practical approach is to add both your setup network and your final deployment network before you ever move the unit. That way, you can still reach the Pi in either location without having to take the enclosure apart or connect a monitor and keyboard.
-
-## Updating the Software and Pi
-
-The NestCamDIY is intended to stay running continuously. In normal use, you should leave it powered on and connected. When you want to update either the NestCamDIY software or the Raspberry Pi operating system, do it over SSH.
-
-### Updating the NestCamDIY repository and reinstalling the software
-
-Connect to the Pi over SSH and go to the project directory:
-
-```bash
-cd ~/NestCamDIY
-```
-
-Then pull down the latest version of the repository:
-
-```bash
-git pull
-```
-
-After that, run the installer again:
-
-```bash
-sudo python setup.py
-```
-
-This is important because `setup.py` does more than just install Python code. It also updates the files that are copied into system locations, such as the daemon, service files, web files, and configuration templates.
-
-Once it finishes, restart the main service:
-
-```bash
-sudo systemctl restart nestcam.service
-```
-
-If you want to confirm that it came back up cleanly, run:
-
-```bash
-sudo systemctl status nestcam.service
-```
-
-### Updating the Raspberry Pi operating system
-
-To update the operating system packages on the Pi, run:
-
-```bash
-sudo apt update
-sudo apt full-upgrade
-```
-
-This updates the package lists and then installs the latest available package versions for the system. It may take a while. If the update installs a new kernel, firmware, camera stack, or other important system package, reboot the Pi afterward:
-
-```bash
-sudo reboot
-```
-
-After the Pi comes back up, reconnect over SSH and confirm that the NestCam service is running:
-
-```bash
-sudo systemctl status nestcam.service
-```
-
-If you updated both the operating system and the NestCamDIY repository, it is a good idea to run `sudo python setup.py` again after major system changes, especially if camera-related packages or service files may have changed.
-
-## Powering off the Pi
-
-This system is meant to stay powered on continuously, so you should not normally shut it down after everyday use. A shutdown is mainly for long-term storage, major hardware changes, or moving the unit somewhere that it will be disconnected from power.
-
-To shut it down cleanly, connect over SSH and run:
-
-```bash
-sudo shutdown -h now
-```
-
-Wait for the Pi activity LED to stop and for the system to fully power down before disconnecting power.
-
-- If you are using a wired setup, unplug the power supply only after the Pi has shut down.
-- If you are using the UPS HAT, switch the HAT to **off** only after the Pi has shut down.
-
-Avoid just pulling power without shutting down first unless there is no other option, because that can corrupt the microSD card or damage files.
-
-## Solar Power Considerations
-
-If you have a site with a reasonable amount of sunlight, you should be able to power the entire platform with one or two solar panels. The UPS hat is limited to 5W solar charging, so unfortunately even if you have enough sun to generate much more than that, the speed at which you can recharge the batter is capped at this level.
-
-You can use the power_stats.py script to estimate the power draw of the unit - leave it running for a few minutes and test how streaming, recording, and using the infrared lights affects power draw. In my testing, it averaged at (very roughly speaking) 1.1W.
-
-So in order to have it solely powered by solar, you'll need to cover this as well as charge up the battery for cloudy periods and nighttime. You will also want to add a buffer. So that works out to maybe 40 watt-hours of solar energy per day that you'll need to keep the system running reliably.
-
-One future goal of the project is to improve both the power draw and the solar charging efficiency, so that is a focus of future development. This may require (i) migrating away from the UPS hat, since that is a big bottleneck for solar charging and (ii) migrating away from using the Pi entirely in favor of something lower powered.
