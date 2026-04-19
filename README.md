@@ -172,7 +172,9 @@ Insert the newly written SD card into the Pi.
 You should see a green LED light on the Pi light up and flicker a bit. Wait until it is steady green, then try to connect to the Pi over wifi using your computer. It could take a few minutes for the Pi to boot up the first time.
 
 If you need instructions for installing a terminal on your computer, check out these links, depending on your operating system:
-**TODO**
+- **Windows:** [Install and get started with Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/install)
+- **macOS:** [Open or quit Terminal on Mac](https://support.apple.com/guide/terminal/open-or-quit-terminal-apd5265185d-f365-44cb-8b09-71a064a42125/mac)
+- **Linux:** [The Linux command line for beginners (Ubuntu documentation)](https://documentation.ubuntu.com/desktop/en/latest/tutorial/the-linux-command-line-for-beginners/)
 
 Once your computer's terminal utility is working and you are connected to the same wifi network that the Pi is on, run:
 
@@ -239,14 +241,29 @@ Once you have SSH access to the Pi:
    ```
 
 Educational Background: What is sudo?
-**TODO**
+
+> `sudo` is a Linux command that means **"run this command as another user,"** and in everyday use that almost always means **run it as the superuser, or `root`.** The root account has permission to change system files, install software, manage services, write into protected directories, and shut the machine down. A normal user account usually cannot do those things directly.
+>
+> That is why this guide uses `sudo` for commands such as `sudo python setup.py` and `sudo shutdown -h now`. The setup script needs elevated privileges because it installs packages, writes configuration files into system locations, and registers background services so the NestCam can start automatically when the Pi boots. Shutting the system down also requires permission to control the operating system itself.
+>
+> You should use `sudo` carefully. It is useful because it lets you administer the Pi without logging in as root all the time, but it also means the command can make major changes if you type something incorrectly. In this project, that mostly means using it only for installation, service management, and other system-level tasks.
 
 8. If you are using a UPS HAT, switch the on/off switch to **off** once the Pi LED shows the Pi is off. If you are using a wired setup, simply unplug the power supply once the LED turns off.
 
 <details>
 <summary><strong><em>Educational Background: How does the NestCamDIY software work?</em></strong></summary>
 
-**TODO** ADD MUCH MORE DETAIL HERE ABOUT THE SERVICES AND WHAT THE VARIOUS FILES DO
+> In this repository, the main installer is [`setup.py`](https://github.com/ehrenbrav/nestcamDIY/blob/master/setup.py). It is not a normal Python packaging file; it is a system installer. It installs the required Debian packages, enables I2C support for the UPS monitoring hardware, copies the project files into standard system locations such as `/opt/nestcam`, writes the default configuration file to `/etc/nestcam/nestcam.env`, creates the recordings directory under `/var/lib/nestcam/recordings`, installs the systemd unit files, and enables the camera daemon and retention timer so they start automatically after boot.
+>
+> The main runtime program is [`services/nestcam_daemon.py`](https://github.com/ehrenbrav/nestcamDIY/blob/master/services/nestcam_daemon.py). This file talks to the Raspberry Pi camera through Picamera2, controls the infrared lights and motion sensor through the GPIO pins, and runs the small HTTP server that you interact with in the browser. That server provides the main page, the live MJPEG stream at `/stream.mjpg`, the status page at `/status.txt`, and the recordings interface, including viewing, downloading, and deleting saved clips. The daemon also tries to save power by starting the camera only when it is needed for live viewing or recording and stopping it again when the system is idle.
+>
+> Most day-to-day tuning happens in [`services/nestcam.env`](https://github.com/ehrenbrav/nestcamDIY/blob/master/services/nestcam.env), which is installed as `/etc/nestcam/nestcam.env`. That file contains settings for the web server address and port, optional HTTP Basic Authentication, the recordings directory, minimum free disk space, camera image controls such as frame rate, exposure, gain, and saturation, infrared LED settings such as brightness and PWM frequency, and motion-detection settings such as GPIO pin, pull direction, sample rate, debounce thresholds, minimum clip length, and cooldown time.
+>
+> Automatic cleanup of old videos is handled by [`services/retention.py`](https://github.com/ehrenbrav/nestcamDIY/blob/master/services/retention.py) together with [`services/nestcam-retention.service`](https://github.com/ehrenbrav/nestcamDIY/blob/master/services/nestcam-retention.service) and [`services/nestcam-retention.timer`](https://github.com/ehrenbrav/nestcamDIY/blob/master/services/nestcam-retention.timer). The retention script prunes the oldest recordings when the recordings directory grows too large or when the filesystem falls below a minimum free-space threshold. The timer runs that cleanup job automatically on a schedule so the device is less likely to fill the storage and stop saving recordings.
+>
+> The systemd unit [`services/nestcam.service`](https://github.com/ehrenbrav/nestcamDIY/blob/master/services/nestcam.service) is what makes the camera behave like an appliance rather than a script you have to launch manually. It tells Linux how to start the daemon at boot, where to read the environment file, and how to restart the service if it exits unexpectedly. That is why commands such as `systemctl status nestcam.service` and `journalctl -u nestcam.service` are so useful for troubleshooting: they are inspecting the installed background service rather than just the source files in the repository.
+>
+> The repository also includes [`webpage/index.html`](https://github.com/ehrenbrav/nestcamDIY/blob/master/webpage/index.html) for the browser front end and small hardware test scripts such as [`tests/test_led.py`](https://github.com/ehrenbrav/nestcamDIY/blob/master/tests/test_led.py) and [`tests/test_motion.py`](https://github.com/ehrenbrav/nestcamDIY/blob/master/tests/test_motion.py). The web page is the landing page for live viewing, while the test scripts let you check the LED and motion-sensor wiring before you permanently mount everything. If you are using the UPS HAT, [`power_stats.py`](https://github.com/ehrenbrav/nestcamDIY/blob/master/power_stats.py) is the optional power-monitoring script that reads the INA219 and reports voltage, current, and power.
 
 > The NestCamDIY software is set up to run as a background Linux service on the Raspberry Pi. When the Pi boots, the service starts automatically and manages the parts of the system that matter day to day: the camera, the motion sensor, the infrared lights, the local recordings, and the small web interface you use to view status or watch the stream.
 >
@@ -357,7 +374,7 @@ There are two ways to do this: either use pre-made jumper wires or build your ow
 
 - Use Dupont crimpers and JST connectors so no soldering is required.
 - This gives you a secure connector that can be attached and reattached at exactly the length you need.
-- Tutorial on using these connectors: **TODO**
+- Tutorial on using these connectors: [Pololu video tutorial on working with custom cables and connectors](https://www.pololu.com/blog/196/video-tutorial-working-with-custom-cables-and-connectors)
 
 Alternatively, you can buy pre-made jumper wires. You will need both female-female and male-female jumper wires. Just connect them together until you have the length you need.
 
@@ -658,7 +675,19 @@ sudo systemctl status nestcam
 If you see error messages here, something isn't working properly. The easiest way to debug this is, again, using ChatGPT. You can tell it too review the repository code, paste in the error message, and it should help you figure out what is going on. There are numerous reasons why it might not work: cameras that aren't automatically detected by the Pi, firewall settings, hardware faults, etc.
 
 Educational Background: What exactly is a URL and port?
-**TODO**
+
+A URL is the address you type into a browser to reach something on a network. In everyday use, people often think of it as the web address. In this project, when you type something like `http://nestcam:8080`, the `nestcam` part is the name of the Raspberry Pi on your local network, and the rest tells your browser how to connect to the web service running on it.
+
+A port is like a numbered doorway on that device. A single computer can run many network services at the same time, and the port number tells incoming traffic which one you want. For example, web traffic often uses port 80 by default, but the NestCamDIY software is configured to serve its web interface on port 8080, so you need to include `:8080` in the address unless you changed the configuration.
+
+That is why the README tells you to browse to `<NAME-OF-YOUR-PI>:8080`. You are not just identifying the Pi itself; you are also identifying the specific service on the Pi that provides the stream and status page. If you leave off the port, your browser will usually assume a default one instead, and it may fail to connect to the NestCam service.
+
+If you want more background, start here:
+
+- [URL on Wikipedia](https://en.wikipedia.org/wiki/URL)
+- [Port (computer networking) on Wikipedia](https://en.wikipedia.org/wiki/Port_(computer_networking))
+- [MDN Web Docs: What is a URL?](https://developer.mozilla.org/en-US/docs/Learn_web_development/Howto/Web_mechanics/What_is_a_URL)
+- [Cloudflare Learning Center: What is a network port?](https://www.cloudflare.com/learning/network-layer/what-is-a-computer-port/)
 
 Once the streaming is working, make any adjustments to the camera to get the image right and test both with natural light and complete darkness (by puting a towel or something over the entire thing). The infrared LEDs should illuminate any time the camera is streaming or recording, so you should be able to see the interior of the birdhouse clearly even in complete darkness. Experiment with putting the LEDs lower or higher in the interior to get the best lighting. Also test the motion detection:
 
@@ -680,9 +709,45 @@ Screw the enclosure shut and ensure that no water can get in. Use removable putt
 
 There are a number of settings you will need to modify, or may want to modify, to make your NestCamDIY work optimally. These will depend on the installation, especially the lighting, and on the type of camera you use.
 
-> **TODO**
+In order to edit this file, you will need to use sudo (since it is in the protected /etc directory). If you don't know how to use a text editor using the command line and SSH, read some details below.
+
+Educational Background: Editing Text With the Linux Command Line
+
+> When you connect to the Raspberry Pi over SSH, you do not get a graphical desktop by default. That means you usually edit files using a text editor that runs directly inside the terminal. This may feel old-fashioned at first, but it is actually one of the most practical ways to manage a small Linux device that is meant to sit in a birdhouse or enclosure rather than on a desk with its own monitor and keyboard.
 >
-> Discuss the various settings that can be used in `/etc/nestcam/nestcam.env` to optimize picture quality and motion detection.
+> The simplest editor for most beginners is usually `nano`. To edit the NestCam configuration file, for example, you can run:
+>
+> ```bash
+> sudo nano /etc/nestcam/nestcam.env
+> ```
+>
+> In `nano`, you can move around with the arrow keys and simply type to add or change text. The command list is shown at the bottom of the screen. `Ctrl-O` means **write out**, which saves the file, and `Ctrl-X` exits the editor. If you try to exit after changing something, `nano` will ask whether you want to save first. That is why `nano` is a good first editor for a project like this: it is simple, direct, and hard to get trapped in.
+>
+> A few other shortcuts are especially useful. `Ctrl-W` searches for text, `Ctrl-K` cuts the current line, and `Ctrl-U` pastes it back. Those are enough for most small edits to configuration files. If you make a mistake, you can usually just reopen the file and correct it. For this project, that is often all you need in order to change values in `nestcam.env`, adjust camera settings, or update service configuration.
+>
+> You may also hear about `vim` or `vi`. These are powerful editors, but they have a steeper learning curve because they use different modes for typing text and issuing commands. They are worth learning eventually, but if your goal is just to get the NestCam running, `nano` is usually the easier place to start.
+>
+> If you want more background, start here:
+>
+> - [GNU nano documentation](https://www.nano-editor.org/docs.php)
+> - [Ubuntu tutorial: Editing files from the terminal](https://documentation.ubuntu.com/server/how-to/console/editing-files-with-nano/)
+> - [Vim documentation](https://www.vim.org/docs.php)
+
+> The main configuration file for the installed system is `/etc/nestcam/nestcam.env`. The installer copies a sample version of this file into place, and the daemon reads it at startup. After you make changes, restart the service with `sudo systemctl restart nestcam.service` so the new settings take effect.
+>
+> The first group of settings controls how you reach the camera over your network. `LIVE_BIND` determines which network interfaces the web server listens on, and `LIVE_PORT` determines the port number, which is why the README uses an address such as `<NAME-OF-YOUR-PI>:8080`. Optional `AUTH_ENABLED`, `LIVE_USER`, and `LIVE_PASS` settings can add simple HTTP Basic Authentication if you want a login prompt on your local network.
+>
+> The next group controls recording behavior and storage. `RECORDINGS_ROOT` chooses where video clips are saved. `RECORDING_ENABLED` lets you disable clip recording entirely while still using live view. `MIN_FREE_GB` is a safety setting: if free disk space falls below that amount, the daemon will refuse to start a new recording rather than filling the storage completely.
+>
+> For image quality, the most important settings are `FPS`, `AE_ENABLE`, `EXPOSURE_TIME`, `ANALOGUE_GAIN`, and `SATURATION`. `FPS` sets the target frame rate. Lower frame rates can improve night performance because they allow longer exposures, but they also make motion look less smooth. `AE_ENABLE=1` leaves exposure and gain on automatic control, which is usually the best starting point. If you set `AE_ENABLE=0`, then `EXPOSURE_TIME` and `ANALOGUE_GAIN` become manual controls. Longer exposure makes the image brighter but increases motion blur, while higher analogue gain also brightens the image but adds noise and grain. `SATURATION` controls color intensity. For infrared-only night scenes, a value near `0.0` can be helpful because it produces a grayscale image, which often looks cleaner than distorted IR color.
+>
+> The infrared light settings determine how strongly the birdhouse is illuminated at night. `IR_GPIO` identifies the Pi pin used to control the lights, and `IR_ACTIVE_HIGH` tells the software whether a high signal or a low signal turns the lights on. `IR_BRIGHTNESS` lets you dim the LEDs from `0.0` to `1.0`, which is useful if the scene is overexposed or if you want to save some power. `IR_PWM_FREQUENCY` controls the dimming frequency. In general, you should leave the pin assignment and polarity alone unless your wiring is different from the README, but brightness is a very useful tuning control.
+>
+> The motion-detection settings are the main tools for reducing false triggers. `MOTION_GPIO_PIN` selects the GPIO pin connected to the PIR sensor. `MOTION_ACTIVE_HIGH` and `MOTION_PULL` must match the way the sensor is wired so the input does not float. `SAMPLE_HZ` controls how often the PIR sensor is checked. `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` says how many active readings in a row are required before motion is treated as real, and `MOTION_CLEAR_CONSECUTIVE_SAMPLES` says how many inactive readings are required before motion is treated as over. Increasing the trigger threshold usually reduces recordings of nothing, while keeping the clear threshold somewhat lower helps prevent rapid on-off flapping.
+>
+> Three other motion settings shape the recorded clips. `MIN_CLIP_SECONDS` makes sure even a short motion event still produces a clip of usable length. `MOTION_COOLDOWN_SECONDS` keeps recording running briefly after motion stops so recordings do not end too abruptly when an animal pauses or moves intermittently. `MOTION_STARTUP_GRACE_SECONDS` ignores the PIR sensor for a short period after startup so the sensor has time to stabilize.
+>
+> A good way to tune the system is to change only one or two variables at a time. For daytime image tuning, leave exposure on automatic first and test framing, focus, and general brightness. For night tuning, start by lowering `FPS`, then experiment with `SATURATION`, and only then move on to manual exposure and gain if needed. For motion tuning, begin by increasing `MOTION_TRIGGER_CONSECUTIVE_SAMPLES` or `MOTION_COOLDOWN_SECONDS` before making more aggressive changes.
 
 ## 6. Camera Choice
 
@@ -698,9 +763,11 @@ This camera is specifically marketed as working well in low light while also sup
 
 Both should work.
 
-> **TODO**
+The Arducam IMX708 option gives you much higher resolution, autofocus, and broad software familiarity because it is built around the same Sony IMX708 family used in Raspberry Pi Camera Module 3 products. That makes it a good choice if you want flexibility in framing, the option to crop the image later, or if you expect the camera distance to change and want autofocus to handle that automatically. The tradeoff is that this extra resolution is not always necessary for a birdhouse stream, and autofocus can be one more variable to manage in a fixed installation. Because the NoIR version does not use an IR-cut filter, it is also not ideal if faithful daytime color is important. 
 >
-> Discuss the other pros and cons of each camera.
+>The Waveshare IMX462 is in some ways the more specialized camera for this project. Its Sony IMX462 sensor is designed for strong low-light and near-infrared performance, and the board includes an IR-cut mechanism so daytime color is more normal while still working well with IR illumination at night. It is also only a 1080p camera, which can actually be an advantage here because it is simpler and more in line with what the Pi Zero 2 W needs for a small streaming appliance. The tradeoffs are that you give up the extra detail of a 12MP sensor, the lens is fixed-focus rather than autofocus, and setup can take a little more tinkering because the Pi may not auto-detect it without the configuration change described below.
+>
+>In practical terms, choose the Arducam if you want the easier mainstream camera path and value higher resolution and autofocus more than accurate daytime color. Choose the Waveshare if your priority is reliable day-and-night operation, better low-light behavior, and cleaner visible-light color during the daytime, even if that means lower resolution and a slightly more custom setup.
 
 ### Waveshare IMX462 Configuration Change
 
@@ -716,4 +783,38 @@ Then save the file and reboot. Otherwise, the Pi will not automatically detect t
 ## Adding Additional Wifi Networks
 
 If you are building your system using a wifi network other than the one it will be deployed on, you'll absolutely need to add the additional wifi network to the Pi. Otherwise, you won't be able to access the Pi once you remove it from the wifi network you used to set it up!
-[**TODO** INSTRUCTIONS FOR ADDING ONE OR MORE ADDITIONAL WIFI NETWORKS]
+Add the extra network or networks before you deploy the camera somewhere else. On current Raspberry Pi OS releases, Wi-Fi is managed by NetworkManager, so the easiest way to do this is with `nmcli` over SSH.
+
+First, see what networks are visible:
+
+```bash
+sudo nmcli dev wifi list
+```
+
+Then add a normal password-protected network:
+
+```bash
+sudo nmcli dev wifi connect "YOUR-SSID" password "YOUR-WIFI-PASSWORD"
+```
+
+If the network is hidden, use:
+
+```bash
+sudo nmcli --ask dev wifi connect "YOUR-SSID" hidden yes
+```
+
+Repeat that for every network you want the Pi to remember. Once added, the connection is saved, so the Pi should reconnect automatically whenever it sees that network again.
+
+To check what saved connections already exist, run:
+
+```bash
+nmcli connection show
+```
+
+If you accidentally entered something incorrectly, you can remove a saved Wi-Fi connection with:
+
+```bash
+sudo nmcli connection delete "YOUR-SSID"
+```
+
+A good practical approach is to add both your setup network and your final deployment network before you ever move the unit. That way, you can still reach the Pi in either location without having to take the enclosure apart or connect a monitor and keyboard.
