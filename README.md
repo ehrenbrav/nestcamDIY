@@ -52,11 +52,11 @@ If you really want to simplify (and reduce costs), you can eliminate the night v
 
 ### Building Without Infrared
 
-If your birdhouse gets enough natural light and you don't care about viewing at night, you can absolutely just setup a much simpler daytime system. Just do not build the infrared LED system and do not get the MOSFET board. You will want to use the excellent standard Raspberry Pi camera that includes an IR filter: the Camera Module 3. This is the same thing as the Arducam version, except it includes a permanent IR filter, so you will get really nice daytime colors. This is an excellent alternative and will also save you some power, as you don't need to use the infrared LEDs.
+If your birdhouse gets enough natural light and you don't care about viewing at night, you can absolutely build a much simpler daytime system. Just do not build the infrared LED system and do not get the MOSFET board. You will want to use the excellent standard Raspberry Pi camera that <em>includes</em> an IR filter: the Camera Module 3. This is the same thing as the Arducam version, except it includes a permanent IR filter, so you will get really nice daytime colors. This is an excellent alternative and will also save you some power, as you don't need to use the infrared LEDs.
 
-## Building Without Motion Recording
+### Building Without Motion Recording
 
-If you don't care about recording anything and just viewing the nestcam in realtime, simply don't get the motion detection board and don't build any of the motion detection hardware. You will need to set `RECORDING_ENABLED=0` in /etc/nestcam/nestcam.env using `sudo nano /etc/nestcam/nestcam.env` to disable recording. Otherwise, it should work just fine. 
+If you don't care about recording anything and just want to view the nestcam in realtime, simply don't get the motion detection board and don't build any of the motion detection hardware. You will need to set `RECORDING_ENABLED=0` in /etc/nestcam/nestcam.env using `sudo nano /etc/nestcam/nestcam.env`. Otherwise, it should work just fine. 
 
 ## Patience and Frustration
 
